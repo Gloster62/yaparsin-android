@@ -1,193 +1,193 @@
 package com.gloster.yaplan.ui.list
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.automirrored.filled.Label
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.IndeterminateCheckBox
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.gloster.yaplan.data.Category
 import com.gloster.yaplan.data.Task
-import com.gloster.yaplan.ui.formatDateTime
-import com.gloster.yaplan.ui.theme.color
-import kotlinx.coroutines.launch
+import com.gloster.yaplan.ui.components.CategoryDot
+import com.gloster.yaplan.ui.components.ChoiceChip
+import com.gloster.yaplan.ui.components.PrimaryButton
+import com.gloster.yaplan.ui.components.TaskRow
+import com.gloster.yaplan.ui.components.YapSnackbarHost
+import com.gloster.yaplan.ui.edit.NewTaskSheet
+import com.gloster.yaplan.ui.formatHeaderDate
+import com.gloster.yaplan.ui.theme.PlexMono
+import com.gloster.yaplan.ui.theme.Yap
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskListScreen(
-    onAddTask: () -> Unit,
     onOpenTask: (Long) -> Unit,
-    onOpenCategories: () -> Unit,
     viewModel: TaskListViewModel = viewModel(factory = TaskListViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val snackbar = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
+    var showNewTask by rememberSaveable { mutableStateOf(false) }
 
-    fun deleteWithUndo(task: Task) {
-        viewModel.delete(task)
-        scope.launch {
-            snackbar.currentSnackbarData?.dismiss()
-            val result = snackbar.showSnackbar(
-                message = "\"${task.title}\" silindi",
-                actionLabel = "Geri al",
-                duration = SnackbarDuration.Short,
+    Scaffold(
+        containerColor = Yap.Background,
+        contentWindowInsets = WindowInsets(0),
+        snackbarHost = { YapSnackbarHost() },
+        floatingActionButton = {
+            if (state.hasAnyTask) {
+                ExtendedFloatingActionButton(
+                    onClick = { showNewTask = true },
+                    containerColor = Yap.Accent,
+                    contentColor = Yap.OnAccent,
+                    shape = RoundedCornerShape(6.dp),
+                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                    text = { Text("Görev ekle", fontSize = 16.sp, fontWeight = FontWeight.Bold) },
+                )
+            }
+        },
+    ) { padding ->
+        Box(
+            Modifier
+                .padding(padding)
+                .fillMaxSize(),
+        ) {
+            if (state.loaded) {
+                TaskListContent(
+                    state = state,
+                    onTab = viewModel::setTab,
+                    onCategory = viewModel::setCategory,
+                    onToggle = viewModel::toggleDone,
+                    onDelete = viewModel::delete,
+                    onOpenTask = onOpenTask,
+                    onAddTask = { showNewTask = true },
+                )
+            }
+            CelebrationBadge(
+                celebration = state.celebration,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 168.dp),
             )
-            if (result == SnackbarResult.ActionPerformed) viewModel.restore(task)
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("YAP LAN!", fontWeight = FontWeight.Black) },
-                actions = {
-                    IconButton(onClick = onOpenCategories) {
-                        Icon(Icons.AutoMirrored.Filled.Label, contentDescription = "Kategoriler")
-                    }
-                },
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onAddTask) {
-                Icon(Icons.Default.Add, contentDescription = "Görev ekle")
-            }
-        },
-        snackbarHost = { SnackbarHost(snackbar, Modifier.imePadding()) },
-    ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize()) {
-            OutlinedTextField(
-                value = state.filter.query,
-                onValueChange = viewModel::setQuery,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                placeholder = { Text("Görev ara") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (state.filter.query.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.setQuery("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Temizle")
-                        }
-                    }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(28.dp),
-            )
+    if (showNewTask) {
+        NewTaskSheet(onDismiss = { showNewTask = false })
+    }
+}
 
-            PrimaryTabRow(
-                selectedTabIndex = state.filter.tab.ordinal,
-                modifier = Modifier.padding(top = 8.dp),
-            ) {
-                TaskTab.entries.forEach { tab ->
-                    Tab(
-                        selected = state.filter.tab == tab,
-                        onClick = { viewModel.setTab(tab) },
-                        text = { Text(tab.label) },
-                        selectedContentColor = MaterialTheme.colorScheme.primary,
-                        unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun TaskListContent(
+    state: TaskListUiState,
+    onTab: (TaskTab) -> Unit,
+    onCategory: (Long?) -> Unit,
+    onToggle: (Task) -> Unit,
+    onDelete: (Task) -> Unit,
+    onOpenTask: (Long) -> Unit,
+    onAddTask: () -> Unit,
+) {
+    Column(Modifier.fillMaxSize()) {
+        Header(state)
+        if (!state.hasAnyTask) {
+            FirstRunEmpty(onAddTask, Modifier.weight(1f))
+            return@Column
+        }
+        ProgressCard(state.progress)
+        Tabs(state.filter.tab, state.tabCounts, onTab)
+        if (state.chips.isNotEmpty()) {
+            CategoryChips(state.chips, state.filter.categoryId, onCategory)
+        } else {
+            Box(Modifier.height(12.dp))
+        }
+        HorizontalDivider(color = Yap.Divider)
+        if (state.sections.isEmpty()) {
+            FilterEmpty(Modifier.weight(1f))
+            return@Column
+        }
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(bottom = 88.dp),
+        ) {
+            state.sections.forEach { section ->
+                stickyHeader(key = "header-${section.kind}") {
+                    SectionHeader(section)
                 }
-            }
-
-            if (state.categories.isNotEmpty()) {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    item {
-                        FilterChip(
-                            selected = state.filter.categoryId == null,
-                            onClick = { viewModel.setCategory(null) },
-                            label = { Text("Hepsi") },
+                items(section.tasks, key = { it.id }) { task ->
+                    SwipeToDelete(
+                        taskTitle = task.title,
+                        onDelete = { onDelete(task) },
+                        modifier = Modifier.animateItem(),
+                    ) {
+                        TaskRow(
+                            task = task,
+                            category = task.categoryId?.let(state.categoriesById::get),
+                            now = state.now,
+                            today = state.today,
+                            onClick = { onOpenTask(task.id) },
+                            onToggle = { onToggle(task) },
                         )
-                    }
-                    items(state.categories, key = { it.id }) { category ->
-                        FilterChip(
-                            selected = state.filter.categoryId == category.id,
-                            onClick = { viewModel.setCategory(category.id) },
-                            label = { Text(category.name) },
-                            leadingIcon = { ColorDot(Color(category.color)) },
-                        )
-                    }
-                }
-            }
-
-            if (state.tasks.isEmpty()) {
-                EmptyState(Modifier.weight(1f))
-            } else {
-                val categoriesById = remember(state.categories) { state.categories.associateBy { it.id } }
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 88.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(state.tasks, key = { it.id }) { task ->
-                        SwipeToDelete(onDelete = { deleteWithUndo(task) }, modifier = Modifier.animateItem()) {
-                            TaskRow(
-                                task = task,
-                                category = task.categoryId?.let(categoriesById::get),
-                                onToggle = { viewModel.toggleDone(task) },
-                                onClick = { onOpenTask(task.id) },
-                            )
-                        }
                     }
                 }
             }
@@ -196,7 +196,196 @@ fun TaskListScreen(
 }
 
 @Composable
+private fun Header(state: TaskListUiState) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            buildAnnotatedString {
+                append("YAP LAN")
+                withStyle(SpanStyle(color = Yap.Accent)) { append("!") }
+            },
+            modifier = Modifier
+                .weight(1f)
+                .semantics { heading() },
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.4.sp,
+        )
+        Text(formatHeaderDate(state.today), fontSize = 13.sp, color = Yap.TextMuted)
+    }
+}
+
+@Composable
+private fun ProgressCard(progress: DailyProgress) {
+    val shape = RoundedCornerShape(6.dp)
+    Column(
+        Modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxWidth()
+            .background(Yap.Surface, shape)
+            .border(1.dp, Yap.Border, shape)
+            .padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 14.dp)
+            .semantics(mergeDescendants = true) {},
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                buildAnnotatedString {
+                    append("${progress.done}")
+                    withStyle(SpanStyle(color = Yap.TextMuted, fontSize = 18.sp, fontWeight = FontWeight.Medium)) {
+                        append("/${progress.total}")
+                    }
+                },
+                fontFamily = PlexMono,
+                fontSize = 28.sp,
+                lineHeight = 30.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text("bugün bitti", fontSize = 14.sp, color = Yap.TextMuted, modifier = Modifier.padding(bottom = 3.dp))
+        }
+        if (progress.total in 1..MAX_SEGMENTS) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                repeat(progress.total) { i ->
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(6.dp)
+                            .background(if (i < progress.done) Yap.Accent else Yap.Border, RoundedCornerShape(3.dp)),
+                    )
+                }
+            }
+        } else {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(Yap.Border),
+            ) {
+                if (progress.total > 0) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth(progress.done.toFloat() / progress.total)
+                            .height(6.dp)
+                            .background(Yap.Accent),
+                    )
+                }
+            }
+        }
+        Text(progressMessage(progress), fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+private const val MAX_SEGMENTS = 12
+
+@Composable
+private fun Tabs(selected: TaskTab, counts: Map<TaskTab, Int>, onSelect: (TaskTab) -> Unit) {
+    val shape = RoundedCornerShape(6.dp)
+    Row(
+        Modifier
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp)
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Yap.Surface)
+            .border(1.dp, Yap.Border, shape)
+            .selectableGroup(),
+    ) {
+        TaskTab.entries.forEach { tab ->
+            val isSelected = tab == selected
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(46.dp)
+                    .background(if (isSelected) Yap.AccentContainer else Color.Transparent)
+                    .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(tab) }),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val color = if (isSelected) Yap.Accent else Yap.TextMuted
+                    Text(tab.label, color = color, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text("${counts[tab] ?: 0}", color = color, fontFamily = PlexMono, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                }
+                if (isSelected) {
+                    Box(
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .background(Yap.Accent),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryChips(chips: List<CategoryChip>, selectedId: Long?, onSelect: (Long?) -> Unit) {
+    LazyRow(
+        modifier = Modifier
+            .height(56.dp)
+            .selectableGroup(),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        items(chips, key = { it.category?.id ?: -1L }) { chip ->
+            val id = chip.category?.id
+            val selected = id == selectedId
+            val name = chip.category?.name ?: "Hepsi"
+            ChoiceChip(
+                selected = selected,
+                onClick = { onSelect(id) },
+                modifier = Modifier.semantics {
+                    contentDescription = (if (id == null) "Tüm kategoriler" else "$name kategorisi") +
+                        ", ${chip.openCount} yapılacak"
+                },
+            ) {
+                chip.category?.let { CategoryDot(Color(it.color), size = 9.dp) }
+                Text(name)
+                Text(
+                    "${chip.openCount}",
+                    fontFamily = PlexMono,
+                    fontSize = 12.sp,
+                    color = if (selected) Yap.Accent else Yap.TextFaint,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(section: TaskSection) {
+    val color = when (section.kind) {
+        SectionKind.OVERDUE -> Yap.Danger
+        SectionKind.TODAY -> Yap.Text
+        SectionKind.DONE -> Yap.TextFaint
+        else -> Yap.TextMuted
+    }
+    Column(Modifier.background(Yap.Background)) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(34.dp)
+                .padding(horizontal = 16.dp)
+                .semantics(mergeDescendants = true) { heading() },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(section.kind.label, modifier = Modifier.weight(1f), color = color, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text("${section.tasks.size}", color = color, fontFamily = PlexMono, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        }
+        HorizontalDivider(color = Yap.Divider)
+    }
+}
+
+@Composable
 private fun SwipeToDelete(
+    taskTitle: String,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
@@ -204,22 +393,30 @@ private fun SwipeToDelete(
     val state = rememberSwipeToDismissBoxState()
     SwipeToDismissBox(
         state = state,
-        modifier = modifier,
+        modifier = modifier.semantics {
+            customActions = listOf(CustomAccessibilityAction("“$taskTitle” görevini sil") { onDelete(); true })
+        },
+        enableDismissFromStartToEnd = false,
         onDismiss = { onDelete() },
         backgroundContent = {
             Box(
                 Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.error)
-                    .padding(horizontal = 24.dp),
-                contentAlignment = if (state.dismissDirection == SwipeToDismissBoxValue.StartToEnd) {
-                    Alignment.CenterStart
-                } else {
-                    Alignment.CenterEnd
-                },
+                    .background(Yap.DeleteZone)
+                    .padding(horizontal = 12.dp),
+                contentAlignment = Alignment.CenterEnd,
             ) {
-                Icon(Icons.Default.Delete, contentDescription = "Sil", tint = Color.White)
+                Row(
+                    Modifier
+                        .height(40.dp)
+                        .background(Yap.Danger, RoundedCornerShape(6.dp))
+                        .padding(start = 10.dp, end = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(Icons.Outlined.Delete, contentDescription = null, tint = Yap.OnAccent, modifier = Modifier.size(18.dp))
+                    Text("Sil", color = Yap.OnAccent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
             }
         },
     ) {
@@ -228,119 +425,95 @@ private fun SwipeToDelete(
 }
 
 @Composable
-private fun TaskRow(
-    task: Task,
-    category: Category?,
-    onToggle: () -> Unit,
-    onClick: () -> Unit,
-) {
-    val overdue = !task.isDone && task.dueAt != null && task.dueAt < System.currentTimeMillis()
-    Card(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+private fun CelebrationBadge(celebration: Celebration?, modifier: Modifier = Modifier) {
+    var last by remember { mutableStateOf(celebration) }
+    if (celebration != null) last = celebration
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(celebration) {
+        if (celebration != null) haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+    }
+    AnimatedVisibility(
+        visible = celebration != null,
+        modifier = modifier,
+        enter = fadeIn(tween(200)) + scaleIn(tween(260), initialScale = 0.96f) +
+            slideInVertically(tween(260)) { it / 6 },
+        exit = fadeOut(tween(200)),
     ) {
-        Row(Modifier.height(IntrinsicSize.Min)) {
-            Box(
-                Modifier
-                    .width(6.dp)
-                    .fillMaxHeight()
-                    .background(task.priority.color),
-            )
-            Row(
-                Modifier.padding(vertical = 10.dp).padding(end = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Checkbox(checked = task.isDone, onCheckedChange = { onToggle() })
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = task.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        textDecoration = if (task.isDone) TextDecoration.LineThrough else null,
-                        color = if (task.isDone) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        },
-                    )
-                    if (task.note.isNotBlank()) {
-                        Text(
-                            text = task.note,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    if (category != null || task.dueAt != null) {
-                        Spacer(Modifier.height(4.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            if (category != null) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    ColorDot(Color(category.color))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(category.name, style = MaterialTheme.typography.labelMedium)
-                                }
-                            }
-                            if (task.dueAt != null) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (task.remind) {
-                                        Icon(
-                                            Icons.Default.Notifications,
-                                            contentDescription = "Hatırlatma açık",
-                                            modifier = Modifier.size(14.dp),
-                                            tint = if (overdue) {
-                                                MaterialTheme.colorScheme.error
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurfaceVariant
-                                            },
-                                        )
-                                        Spacer(Modifier.width(2.dp))
-                                    }
-                                    Text(
-                                        text = formatDateTime(task.dueAt),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = if (overdue) {
-                                            MaterialTheme.colorScheme.error
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+        val shown = last ?: return@AnimatedVisibility
+        Column(
+            Modifier
+                .widthIn(max = 300.dp)
+                .background(Yap.Accent, RoundedCornerShape(8.dp))
+                .padding(horizontal = 22.dp, vertical = 14.dp)
+                .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.Check, contentDescription = null, tint = Yap.OnAccent, modifier = Modifier.size(24.dp))
+                Text(
+                    if (shown.allDoneToday) "HEPSİNİ YAPTIN LAN!" else "YAPTIN LAN!",
+                    color = Yap.OnAccent,
+                    fontSize = if (shown.allDoneToday) 20.sp else 24.sp,
+                    lineHeight = 28.sp,
+                    maxLines = 1,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp,
+                )
             }
+            Text(
+                buildString {
+                    append("“${shown.taskTitle}” bitti")
+                    if (shown.isToday) append(" · bugün ${shown.progress.done}/${shown.progress.total}")
+                },
+                color = Yap.OnAccent,
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
 
 @Composable
-fun ColorDot(color: Color, size: Int = 10) {
-    Box(
-        Modifier
-            .size(size.dp)
-            .clip(CircleShape)
-            .background(color),
-    )
+private fun FirstRunEmpty(onAddTask: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .padding(horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
+    ) {
+        Icon(Icons.Outlined.CheckBox, contentDescription = null, tint = Yap.EmptyIcon, modifier = Modifier.size(56.dp))
+        Text("Henüz görev yok", fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            "İlk görevini ekle, zamanı gelince YAP LAN! sana hatırlatsın.",
+            fontSize = 15.sp,
+            lineHeight = 22.sp,
+            color = Yap.TextMuted,
+            textAlign = TextAlign.Center,
+        )
+        PrimaryButton(
+            "İlk görevini ekle",
+            onClick = onAddTask,
+            modifier = Modifier.padding(top = 14.dp),
+            leading = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp)) },
+        )
+    }
 }
 
 @Composable
-private fun EmptyState(modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Burada görev yok", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Eklemek için + butonuna bas",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+private fun FilterEmpty(modifier: Modifier = Modifier) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .padding(horizontal = 32.dp, vertical = 64.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(Icons.Outlined.IndeterminateCheckBox, contentDescription = null, tint = Yap.EmptyIcon, modifier = Modifier.size(40.dp))
+        Text("Burada görev yok", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Text("Başka bir sekme ya da kategori seç.", fontSize = 14.sp, color = Yap.TextMuted, textAlign = TextAlign.Center)
     }
 }

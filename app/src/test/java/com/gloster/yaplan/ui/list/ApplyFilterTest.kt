@@ -13,7 +13,7 @@ class ApplyFilterTest {
     private val relaxed = Task(id = 5, title = "Kitap oku", priority = Priority.LOW, createdAt = 5)
     private val all = listOf(milk, homework, call, urgent, relaxed)
 
-    private fun ids(filter: TaskFilter) = applyFilter(all, filter).map { it.id }
+    private fun ids(filter: TaskFilter, pinnedId: Long? = null) = applyFilter(all, filter, pinnedId).map { it.id }
 
     @Test
     fun sortsOpenFirstThenByDueDateThenPriority() {
@@ -29,18 +29,13 @@ class ApplyFilterTest {
     @Test
     fun filtersByCategory() {
         assertEquals(listOf(1L), ids(TaskFilter(categoryId = 2)))
+        assertEquals(listOf(2L), ids(TaskFilter(tab = TaskTab.OPEN, categoryId = 3)))
     }
 
     @Test
-    fun searchesTitleAndNoteIgnoringCase() {
-        assertEquals(listOf(1L), ids(TaskFilter(query = "süt")))
-        assertEquals(listOf(2L), ids(TaskFilter(query = "MATEMATİK")))
-        assertEquals(emptyList<Long>(), ids(TaskFilter(query = "yok böyle")))
-    }
-
-    @Test
-    fun combinesFilters() {
-        assertEquals(emptyList<Long>(), ids(TaskFilter(tab = TaskTab.DONE, query = "süt")))
-        assertEquals(listOf(2L), ids(TaskFilter(tab = TaskTab.OPEN, categoryId = 3, query = "ödev")))
+    fun justCompletedTaskStaysInOpenTabWhilePinned() {
+        val done = all.map { if (it.id == 2L) it.copy(isDone = true) else it }
+        assertEquals(listOf(2L, 1L, 4L, 5L), applyFilter(done, TaskFilter(tab = TaskTab.OPEN), pinnedId = 2).map { it.id })
+        assertEquals(listOf(1L, 4L, 5L), applyFilter(done, TaskFilter(tab = TaskTab.OPEN)).map { it.id })
     }
 }
