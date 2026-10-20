@@ -12,10 +12,11 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
         val pending = goAsync()
-        val repository = (context.applicationContext as YapLanApp).repository
+        val app = context.applicationContext as YapLanApp
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                repository.rescheduleAll()
+                app.repository.rescheduleAll()
+                app.habits.rescheduleReminders()
             } finally {
                 pending.finish()
             }

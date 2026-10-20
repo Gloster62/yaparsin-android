@@ -9,6 +9,7 @@ import com.gloster.yaplan.YapLanApp
 import com.gloster.yaplan.data.Category
 import com.gloster.yaplan.data.Task
 import com.gloster.yaplan.data.TaskRepository
+import com.gloster.yaplan.ui.minuteTicks
 import com.gloster.yaplan.ui.toLocalDateTime
 import java.time.LocalDate
 import java.time.ZoneId
@@ -18,7 +19,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -51,16 +51,8 @@ class TaskListViewModel(
     private val celebratingId = MutableStateFlow<Long?>(null)
     private var celebrationJob: Job? = null
 
-    /** Ticks every minute so "Gecikti" and the day sections stay correct while the screen is open. */
-    private val clock = flow {
-        while (true) {
-            emit(System.currentTimeMillis())
-            delay(60_000)
-        }
-    }
-
     val state: StateFlow<TaskListUiState> =
-        combine(repository.allTasks, repository.allCategories, filter, celebratingId, clock) { tasks, categories, f, pinned, now ->
+        combine(repository.allTasks, repository.allCategories, filter, celebratingId, minuteTicks()) { tasks, categories, f, pinned, now ->
             val validFilter =
                 if (f.categoryId != null && categories.none { it.id == f.categoryId }) f.copy(categoryId = null) else f
             val today = now.toLocalDateTime(zone).toLocalDate()

@@ -31,7 +31,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -70,6 +69,7 @@ import com.gloster.yaplan.ui.components.FieldLabel
 import com.gloster.yaplan.ui.components.LabeledTextField
 import com.gloster.yaplan.ui.components.PriorityBars
 import com.gloster.yaplan.ui.components.SelectableBox
+import com.gloster.yaplan.ui.components.yapSwitchColors
 import com.gloster.yaplan.ui.dayLabel
 import com.gloster.yaplan.ui.formatShortDate
 import com.gloster.yaplan.ui.formatTime
@@ -379,17 +379,7 @@ private fun ReminderSwitch(state: TaskEditState, today: LocalDate, onChange: (Bo
             checked = state.remind,
             onCheckedChange = null,
             enabled = enabled,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Yap.OnAccent,
-                checkedTrackColor = Yap.Accent,
-                checkedBorderColor = Yap.Accent,
-                uncheckedThumbColor = Yap.CheckboxBorder,
-                uncheckedTrackColor = Color.Transparent,
-                uncheckedBorderColor = Yap.CheckboxBorder,
-                disabledUncheckedThumbColor = Yap.OutlineStrong,
-                disabledUncheckedTrackColor = Color.Transparent,
-                disabledUncheckedBorderColor = Yap.OutlineStrong,
-            ),
+            colors = yapSwitchColors(),
         )
     }
 }

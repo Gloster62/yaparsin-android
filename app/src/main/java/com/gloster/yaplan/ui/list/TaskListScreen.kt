@@ -75,6 +75,7 @@ import com.gloster.yaplan.data.Task
 import com.gloster.yaplan.ui.components.CategoryDot
 import com.gloster.yaplan.ui.components.ChoiceChip
 import com.gloster.yaplan.ui.components.PrimaryButton
+import com.gloster.yaplan.ui.components.ProgressCard
 import com.gloster.yaplan.ui.components.TaskRow
 import com.gloster.yaplan.ui.components.YapSnackbarHost
 import com.gloster.yaplan.ui.edit.NewTaskSheet
@@ -154,7 +155,7 @@ private fun TaskListContent(
             FirstRunEmpty(onAddTask, Modifier.weight(1f))
             return@Column
         }
-        ProgressCard(state.progress)
+        ProgressCard(state.progress.done, state.progress.total, "bugün bitti", progressMessage(state.progress))
         Tabs(state.filter.tab, state.tabCounts, onTab)
         if (state.chips.isNotEmpty()) {
             CategoryChips(state.chips, state.filter.categoryId, onCategory)
@@ -219,69 +220,6 @@ private fun Header(state: TaskListUiState) {
         Text(formatHeaderDate(state.today), fontSize = 13.sp, color = Yap.TextMuted)
     }
 }
-
-@Composable
-private fun ProgressCard(progress: DailyProgress) {
-    val shape = RoundedCornerShape(6.dp)
-    Column(
-        Modifier
-            .padding(horizontal = 16.dp)
-            .fillMaxWidth()
-            .background(Yap.Surface, shape)
-            .border(1.dp, Yap.Border, shape)
-            .padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 14.dp)
-            .semantics(mergeDescendants = true) {},
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                buildAnnotatedString {
-                    append("${progress.done}")
-                    withStyle(SpanStyle(color = Yap.TextMuted, fontSize = 18.sp, fontWeight = FontWeight.Medium)) {
-                        append("/${progress.total}")
-                    }
-                },
-                fontFamily = PlexMono,
-                fontSize = 28.sp,
-                lineHeight = 30.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text("bugün bitti", fontSize = 14.sp, color = Yap.TextMuted, modifier = Modifier.padding(bottom = 3.dp))
-        }
-        if (progress.total in 1..MAX_SEGMENTS) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                repeat(progress.total) { i ->
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .height(6.dp)
-                            .background(if (i < progress.done) Yap.Accent else Yap.Border, RoundedCornerShape(3.dp)),
-                    )
-                }
-            }
-        } else {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(Yap.Border),
-            ) {
-                if (progress.total > 0) {
-                    Box(
-                        Modifier
-                            .fillMaxWidth(progress.done.toFloat() / progress.total)
-                            .height(6.dp)
-                            .background(Yap.Accent),
-                    )
-                }
-            }
-        }
-        Text(progressMessage(progress), fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
-    }
-}
-
-private const val MAX_SEGMENTS = 12
 
 @Composable
 private fun Tabs(selected: TaskTab, counts: Map<TaskTab, Int>, onSelect: (TaskTab) -> Unit) {

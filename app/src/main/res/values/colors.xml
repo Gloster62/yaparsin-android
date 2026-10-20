@@ -1,4 +1,8 @@
 <resources>
     <color name="background">#FF0E1012</color>
     <color name="icon_background">#FFFFD60A</color>
+    <color name="widget_surface">#FF15181B</color>
+    <color name="widget_border">#FF2A3036</color>
+    <color name="accent">#FFFFD60A</color>
+    <color name="missed_day">#FF1C1514</color>
 </resources>

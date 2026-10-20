@@ -4,6 +4,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -16,6 +17,9 @@ private val weekdayFormat = DateTimeFormatter.ofPattern("EEEE", turkish)
 private val dayMonthFormat = DateTimeFormatter.ofPattern("d MMMM", turkish)
 private val dayMonthYearFormat = DateTimeFormatter.ofPattern("d MMMM yyyy", turkish)
 private val shortDateFormat = DateTimeFormatter.ofPattern("d MMM", turkish)
+private val monthFormat = DateTimeFormatter.ofPattern("LLLL yyyy", turkish)
+
+val weekdayInitials = listOf("Pt", "Sa", "Ça", "Pe", "Cu", "Ct", "Pz")
 
 private fun String.capitalized() = replaceFirstChar { it.titlecase(turkish) }
 
@@ -29,6 +33,9 @@ fun formatTime(time: LocalTime): String = time.format(timeFormat)
 /** "Pazartesi, 19 Ekim" */
 fun formatHeaderDate(date: LocalDate): String =
     "${date.format(weekdayFormat).capitalized()}, ${date.format(dayMonthFormat)}"
+
+/** "Ekim 2026" */
+fun formatMonth(month: YearMonth): String = month.format(monthFormat).capitalized()
 
 /** "21 Eki" */
 fun formatShortDate(date: LocalDate): String = date.format(shortDateFormat)

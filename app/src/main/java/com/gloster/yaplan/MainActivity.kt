@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -31,12 +32,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 import com.gloster.yaplan.ui.AppBottomBar
 import com.gloster.yaplan.ui.TopLevelDestination
 import com.gloster.yaplan.ui.categories.CategoriesScreen
 import com.gloster.yaplan.ui.components.LocalAppSnackbar
 import com.gloster.yaplan.ui.edit.TaskEditScreen
 import com.gloster.yaplan.ui.edit.TaskEditViewModel
+import com.gloster.yaplan.ui.habits.HabitDetailScreen
+import com.gloster.yaplan.ui.habits.HabitDetailViewModel
+import com.gloster.yaplan.ui.habits.HabitListScreen
 import com.gloster.yaplan.ui.list.TaskListScreen
 import com.gloster.yaplan.ui.search.SearchScreen
 import com.gloster.yaplan.ui.theme.Yap
@@ -88,6 +93,17 @@ private fun AppNavigation() {
     }
 
     val openTask: (Long) -> Unit = { id -> nav.navigate("edit/$id") }
+    val openHabit: (Long) -> Unit = { id -> nav.navigate("habit/$id") }
+
+    /** A widget or notification link puts the detail right above Görevler; back should still land on the list. */
+    val backToHabits: () -> Unit = {
+        if (!nav.popBackStack(TopLevelDestination.HABITS.route, inclusive = false)) {
+            nav.navigate(TopLevelDestination.HABITS.route) {
+                popUpTo(nav.graph.findStartDestination().id)
+                launchSingleTop = true
+            }
+        }
+    }
 
     CompositionLocalProvider(LocalAppSnackbar provides snackbar) {
         Scaffold(
@@ -112,6 +128,10 @@ private fun AppNavigation() {
                     .consumeWindowInsets(padding),
             ) {
                 composable(TopLevelDestination.TASKS.route) { TaskListScreen(onOpenTask = openTask) }
+                composable(
+                    TopLevelDestination.HABITS.route,
+                    deepLinks = listOf(navDeepLink { uriPattern = DeepLinks.HABITS }),
+                ) { HabitListScreen(onOpenHabit = openHabit) }
                 composable(TopLevelDestination.SEARCH.route) { SearchScreen(onOpenTask = openTask) }
                 composable(TopLevelDestination.CATEGORIES.route) { CategoriesScreen() }
                 composable(
@@ -119,6 +139,16 @@ private fun AppNavigation() {
                     arguments = listOf(navArgument(TaskEditViewModel.ARG_TASK_ID) { type = NavType.LongType }),
                 ) {
                     TaskEditScreen(onBack = { nav.popBackStack() })
+                }
+                composable(
+                    "habit/{${HabitDetailViewModel.ARG_HABIT_ID}}",
+                    arguments = listOf(navArgument(HabitDetailViewModel.ARG_HABIT_ID) { type = NavType.LongType }),
+                    deepLinks = listOf(navDeepLink { uriPattern = DeepLinks.HABIT }),
+                ) { entry ->
+                    // Deleting the habit also closes the screen; the check stops a second pop.
+                    HabitDetailScreen(onBack = {
+                        if (entry.lifecycle.currentState == Lifecycle.State.RESUMED) backToHabits()
+                    })
                 }
             }
         }

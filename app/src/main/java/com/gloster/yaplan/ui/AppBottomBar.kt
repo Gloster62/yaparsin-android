@@ -17,6 +17,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Checklist
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material3.HorizontalDivider
@@ -35,6 +36,7 @@ import com.gloster.yaplan.ui.theme.Yap
 
 enum class TopLevelDestination(val route: String, val label: String, val icon: ImageVector) {
     TASKS("tasks", "Görevler", Icons.Outlined.Checklist),
+    HABITS("habits", "Alışkanlıklar", Icons.Outlined.Link),
     SEARCH("search", "Ara", Icons.Outlined.Search),
     CATEGORIES("categories", "Kategoriler", Icons.Outlined.Sell),
 }
@@ -79,6 +81,7 @@ fun AppBottomBar(current: TopLevelDestination?, onSelect: (TopLevelDestination) 
                         lineHeight = 14.sp,
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                         color = if (selected) Yap.Text else Yap.TextMuted,
+                        maxLines = 1,
                     )
                 }
             }

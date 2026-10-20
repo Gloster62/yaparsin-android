@@ -2,6 +2,7 @@ package com.gloster.yaplan.ui
 
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.YearMonth
 import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -28,5 +29,11 @@ class FormattersTest {
     @Test
     fun headerDate() {
         assertEquals("Pazartesi, 19 Ekim", formatHeaderDate(today))
+    }
+
+    @Test
+    fun monthTitle() {
+        assertEquals("Ekim 2026", formatMonth(YearMonth.of(2026, 10)))
+        assertEquals("Şubat 2027", formatMonth(YearMonth.of(2027, 2)))
     }
 }
