@@ -2,4 +2,8 @@
     <string name="app_name">YAP LAN!</string>
     <string name="habit_widget_label">Alışkanlık takvimi</string>
     <string name="habit_widget_description">Bir alışkanlığın bu ayki zinciri</string>
+    <string name="task_widget_label">Görev</string>
+    <string name="task_widget_description">Bir görev ve listesi; maddeleri ana ekrandan işaretle</string>
+    <string name="task_list_widget_label">Yapılacaklar</string>
+    <string name="task_list_widget_description">Yapılacak görevler; ana ekrandan işaretle ya da yenisini ekle</string>
 </resources>

@@ -39,8 +39,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxDefaults
+import androidx.compose.material3.SwipeToDismissBoxState
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -86,10 +88,11 @@ import com.gloster.yaplan.ui.theme.Yap
 @Composable
 fun TaskListScreen(
     onOpenTask: (Long) -> Unit,
+    startWithNewTask: Boolean = false,
     viewModel: TaskListViewModel = viewModel(factory = TaskListViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var showNewTask by rememberSaveable { mutableStateOf(false) }
+    var showNewTask by rememberSaveable { mutableStateOf(startWithNewTask) }
 
     Scaffold(
         containerColor = Yap.Background,
@@ -188,6 +191,7 @@ private fun TaskListContent(
                             today = state.today,
                             onClick = { onOpenTask(task.id) },
                             onToggle = { onToggle(task) },
+                            progress = state.checklist[task.id],
                         )
                     }
                 }
@@ -328,7 +332,10 @@ private fun SwipeToDelete(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val state = rememberSwipeToDismissBoxState()
+    // Not rememberSaveable: the list would restore a "dismissed" state when "Geri al" brings the
+    // same task back, and SwipeToDismissBox would delete it again straight away.
+    val threshold = SwipeToDismissBoxDefaults.positionalThreshold
+    val state = remember { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, threshold) }
     SwipeToDismissBox(
         state = state,
         modifier = modifier.semantics {

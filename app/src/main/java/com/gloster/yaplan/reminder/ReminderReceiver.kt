@@ -11,38 +11,62 @@ import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import com.gloster.yaplan.MainActivity
+import com.gloster.yaplan.DeepLinks
 import com.gloster.yaplan.R
+import com.gloster.yaplan.YapLanApp
+import com.gloster.yaplan.data.ChecklistItem
+import com.gloster.yaplan.data.Task
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val taskId = intent.getLongExtra(EXTRA_TASK_ID, -1)
-        val title = intent.getStringExtra(EXTRA_TITLE) ?: return
+        val app = context.applicationContext as YapLanApp
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val task = app.repository.getTask(taskId) ?: return@launch
+                if (intent.action == ACTION_REPEAT) app.scheduler.update(task)
+                if (!task.isDone) notify(context, task, app.repository.getItems(taskId))
+            } finally {
+                pending.finish()
+            }
+        }
+    }
+
+    private fun notify(context: Context, task: Task, items: List<ChecklistItem>) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
             != PackageManager.PERMISSION_GRANTED
         ) return
 
-        val openApp = PendingIntent.getActivity(
+        val open = PendingIntent.getActivity(
             context,
-            taskId.toInt(),
-            Intent(context, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            task.id.toInt(),
+            DeepLinks.intent(context, DeepLinks.task(task.id)),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val left = items.filterNot { it.isDone }
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("YAP LAN!")
-            .setContentText(title)
+            .setContentText(task.title)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setContentIntent(openApp)
+            .setContentIntent(open)
             .setAutoCancel(true)
-            .build()
-        NotificationManagerCompat.from(context).notify(taskId.toInt(), notification)
+        if (left.isNotEmpty()) {
+            builder.setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText("${task.title}\n${left.size} madde kaldı: ${left.joinToString(", ") { it.text }}"),
+            )
+        }
+        NotificationManagerCompat.from(context).notify(task.id.toInt(), builder.build())
     }
 
     companion object {
         const val EXTRA_TASK_ID = "task_id"
-        const val EXTRA_TITLE = "title"
+        const val ACTION_REPEAT = "com.gloster.yaplan.REPEAT_REMINDER"
         const val CHANNEL_ID = "reminders"
 
         fun createChannel(context: Context) {

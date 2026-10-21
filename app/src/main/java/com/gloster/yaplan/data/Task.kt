@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import java.time.LocalTime
 
 enum class Priority(val label: String) {
     HIGH("Yüksek"),
@@ -30,8 +31,15 @@ data class Task(
     val isDone: Boolean = false,
     val priority: Priority = Priority.MEDIUM,
     val categoryId: Long? = null,
-    /** Son tarih, epoch milisaniye. */
+    /** Son tarih, epoch milisaniye; o saatte bildirim gelir. */
     val dueAt: Long? = null,
-    val remind: Boolean = false,
+    /** Düzenli hatırlatma günleri (bkz. [hasDay]); 0 ise kapalı. */
+    val repeatDays: Int = 0,
+    /** Düzenli hatırlatmanın saati, günün dakikası (09:00 → 540). */
+    val repeatMinutes: Int = DEFAULT_REPEAT_MINUTES,
     val createdAt: Long = System.currentTimeMillis(),
 )
+
+const val DEFAULT_REPEAT_MINUTES = 9 * 60
+
+val Task.repeatTime: LocalTime get() = timeOfDay(repeatMinutes)

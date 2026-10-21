@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gloster.yaplan.YapLanApp
 import com.gloster.yaplan.data.Category
+import com.gloster.yaplan.data.ChecklistProgress
 import com.gloster.yaplan.data.Task
 import com.gloster.yaplan.data.TaskRepository
 import com.gloster.yaplan.ui.minuteTicks
@@ -40,6 +41,7 @@ data class TaskListUiState(
     val chips: List<CategoryChip> = emptyList(),
     val sections: List<TaskSection> = emptyList(),
     val categoriesById: Map<Long, Category> = emptyMap(),
+    val checklist: Map<Long, ChecklistProgress> = emptyMap(),
     val celebration: Celebration? = null,
 )
 
@@ -86,7 +88,9 @@ class TaskListViewModel(
                     )
                 },
             )
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TaskListUiState())
+        }
+            .combine(repository.checklistProgress) { state, checklist -> state.copy(checklist = checklist) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TaskListUiState())
 
     fun setTab(tab: TaskTab) = filter.update { it.copy(tab = tab) }
 

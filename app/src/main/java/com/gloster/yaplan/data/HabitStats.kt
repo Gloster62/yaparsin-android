@@ -3,7 +3,6 @@ package com.gloster.yaplan.data
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.YearMonth
 import java.time.ZoneId
 
@@ -76,10 +75,4 @@ fun monthScore(month: YearMonth, done: Set<LocalDate>, today: LocalDate, startDa
 }
 
 /** The next time [minutes] past midnight comes round after [now]. */
-fun nextReminderAt(now: Long, minutes: Int, zone: ZoneId): Long {
-    val current = Instant.ofEpochMilli(now).atZone(zone)
-    val time = LocalTime.of(minutes / 60, minutes % 60)
-    val todayAt = current.toLocalDate().atTime(time).atZone(zone)
-    val next = if (todayAt.isAfter(current)) todayAt else current.toLocalDate().plusDays(1).atTime(time).atZone(zone)
-    return next.toInstant().toEpochMilli()
-}
+fun nextReminderAt(now: Long, minutes: Int, zone: ZoneId): Long = nextRepeatAt(now, EVERY_DAY, minutes, zone)!!

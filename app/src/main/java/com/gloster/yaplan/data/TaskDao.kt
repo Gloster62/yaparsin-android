@@ -12,10 +12,13 @@ interface TaskDao {
     fun observeAll(): Flow<List<Task>>
 
     @Query("SELECT * FROM tasks WHERE id = :id")
+    fun observe(id: Long): Flow<Task?>
+
+    @Query("SELECT * FROM tasks WHERE id = :id")
     suspend fun get(id: Long): Task?
 
-    @Query("SELECT * FROM tasks WHERE remind = 1 AND isDone = 0 AND dueAt > :now")
-    suspend fun pendingReminders(now: Long): List<Task>
+    @Query("SELECT * FROM tasks WHERE isDone = 0 AND (dueAt > :now OR repeatDays != 0)")
+    suspend fun withReminders(now: Long): List<Task>
 
     @Upsert
     suspend fun upsert(task: Task): Long

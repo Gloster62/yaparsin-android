@@ -9,8 +9,18 @@ import androidx.core.net.toUri
 object DeepLinks {
     const val HABITS = "yaplan://habits"
     const val HABIT = "yaplan://habit/{habitId}"
+    const val TASK = "yaplan://task/{taskId}"
+    const val ARG_NEW_TASK = "new"
+    const val TASKS = "yaplan://tasks?$ARG_NEW_TASK={$ARG_NEW_TASK}"
 
     fun habit(id: Long): Uri = "yaplan://habit/$id".toUri()
+
+    fun task(id: Long): Uri = "yaplan://task/$id".toUri()
+
+    val tasks: Uri = "yaplan://tasks".toUri()
+
+    /** Görevler with the "Yeni görev" sheet already open. */
+    val newTask: Uri = "yaplan://tasks?$ARG_NEW_TASK=true".toUri()
 
     /** A fresh task, so Navigation builds the back stack under the linked screen. */
     fun intent(context: Context, uri: Uri): Intent =

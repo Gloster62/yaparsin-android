@@ -1,5 +1,10 @@
 package com.gloster.yaplan.ui
 
+import com.gloster.yaplan.data.EVERY_DAY
+import com.gloster.yaplan.data.WEEKDAYS
+import com.gloster.yaplan.data.WEEKEND
+import com.gloster.yaplan.data.days
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -7,6 +12,7 @@ import java.time.LocalTime
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
@@ -57,4 +63,26 @@ fun dayLabel(date: LocalDate, today: LocalDate): String =
 fun dueLabel(dueAt: Long, today: LocalDate, zone: ZoneId = ZoneId.systemDefault()): String {
     val due = dueAt.toLocalDateTime(zone)
     return "${dayLabel(due.toLocalDate(), today)} ${due.format(timeFormat)}"
+}
+
+/** "Pazartesi" */
+fun dayName(day: DayOfWeek): String = day.getDisplayName(TextStyle.FULL, turkish).capitalized()
+
+/** Her gün / Hafta içi / Hafta sonu / Her Salı / Pt, Ça, Cu */
+fun formatRepeatDays(days: Int): String = when (days) {
+    EVERY_DAY -> "Her gün"
+    WEEKDAYS -> "Hafta içi"
+    WEEKEND -> "Hafta sonu"
+    else -> days.days().let { chosen ->
+        if (chosen.size == 1) "Her ${dayName(chosen.single())}" else chosen.joinToString(", ") { weekdayInitials[it.ordinal] }
+    }
+}
+
+/** "Hafta içi 09:00" */
+fun formatRepeat(days: Int, time: LocalTime): String = "${formatRepeatDays(days)} ${formatTime(time)}"
+
+/** The time alone for today, otherwise the day: what fits next to a title in a widget. */
+fun compactDueLabel(dueAt: Long, today: LocalDate, zone: ZoneId = ZoneId.systemDefault()): String {
+    val due = dueAt.toLocalDateTime(zone)
+    return if (due.toLocalDate() == today) due.format(timeFormat) else dayLabel(due.toLocalDate(), today)
 }

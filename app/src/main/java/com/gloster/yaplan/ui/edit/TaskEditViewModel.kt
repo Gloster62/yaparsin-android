@@ -10,10 +10,16 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gloster.yaplan.YapLanApp
 import com.gloster.yaplan.data.Category
+import com.gloster.yaplan.data.ChecklistItem
+import com.gloster.yaplan.data.DEFAULT_REPEAT_MINUTES
 import com.gloster.yaplan.data.Priority
 import com.gloster.yaplan.data.Task
 import com.gloster.yaplan.data.TaskRepository
+import com.gloster.yaplan.data.repeatTime
+import com.gloster.yaplan.data.timeOfDay
+import com.gloster.yaplan.data.toggleDay
 import com.gloster.yaplan.ui.toLocalDateTime
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -35,11 +41,17 @@ data class TaskEditState(
     val categoryId: Long? = null,
     val dueDate: LocalDate? = null,
     val dueTime: LocalTime = DEFAULT_TIME,
-    val remind: Boolean = false,
+    val repeatDays: Int = 0,
+    val repeatTime: LocalTime = timeOfDay(DEFAULT_REPEAT_MINUTES),
+    /** Items not saved yet have negative ids, so each row still has its own key. */
+    val items: List<ChecklistItem> = emptyList(),
+    /** What is typed in "Madde ekle"; saving keeps it even if Enter wasn't pressed. */
+    val newItemText: String = "",
     val createdAt: Long? = null,
 ) {
     val canSave: Boolean get() = title.isNotBlank()
     val hasDate: Boolean get() = dueDate != null
+    val repeats: Boolean get() = repeatDays != 0
 
     fun dueAt(zone: ZoneId): Long? = dueDate?.atTime(dueTime)?.atZone(zone)?.toInstant()?.toEpochMilli()
 
@@ -47,6 +59,8 @@ data class TaskEditState(
         val DEFAULT_TIME: LocalTime = LocalTime.of(18, 0)
     }
 }
+
+private fun LocalTime.minuteOfDay(): Int = hour * 60 + minute
 
 @Stable
 interface TaskFormActions {
@@ -57,7 +71,13 @@ interface TaskFormActions {
     fun setCategory(value: Long?)
     fun setDueDate(value: LocalDate?)
     fun setDueTime(value: LocalTime)
-    fun setRemind(value: Boolean)
+    fun toggleRepeatDay(day: DayOfWeek)
+    fun setRepeatTime(value: LocalTime)
+    fun setNewItemText(value: String)
+    fun addNewItem()
+    fun setItemText(id: Long, text: String)
+    fun setItemDone(id: Long, done: Boolean)
+    fun removeItem(id: Long)
     fun createCategory(category: Category)
 }
 
@@ -66,8 +86,9 @@ class TaskEditViewModel(
     savedState: SavedStateHandle,
     private val zone: ZoneId = ZoneId.systemDefault(),
 ) : ViewModel(), TaskFormActions {
-    private val taskId: Long = savedState.get<Long>(ARG_TASK_ID) ?: NEW_TASK
+    val taskId: Long = savedState.get<Long>(ARG_TASK_ID) ?: NEW_TASK
     private var original: Task? = null
+    private var nextDraftId = -1L
 
     private val _state = MutableStateFlow(newTaskState())
     val state: StateFlow<TaskEditState> = _state.asStateFlow()
@@ -79,6 +100,7 @@ class TaskEditViewModel(
         if (taskId != NEW_TASK) {
             viewModelScope.launch {
                 val task = repository.getTask(taskId) ?: return@launch
+                val items = repository.getItems(taskId)
                 original = task
                 val due = task.dueAt?.toLocalDateTime(zone)
                 _state.value = TaskEditState(
@@ -91,9 +113,22 @@ class TaskEditViewModel(
                     categoryId = task.categoryId,
                     dueDate = due?.toLocalDate(),
                     dueTime = due?.toLocalTime()?.withSecond(0)?.withNano(0) ?: TaskEditState.DEFAULT_TIME,
-                    remind = task.remind,
+                    repeatDays = task.repeatDays,
+                    repeatTime = task.repeatTime,
+                    items = items,
                     createdAt = task.createdAt,
                 )
+                syncItemTicks()
+            }
+        }
+    }
+
+    /** A widget can tick items while this screen is open; saving must not undo that. */
+    private suspend fun syncItemTicks() {
+        repository.observeItems(taskId).collect { saved ->
+            val doneById = saved.associate { it.id to it.isDone }
+            _state.update { s ->
+                s.copy(items = s.items.map { item -> doneById[item.id]?.let { item.copy(isDone = it) } ?: item })
             }
         }
     }
@@ -110,10 +145,38 @@ class TaskEditViewModel(
     override fun setDone(value: Boolean) = _state.update { it.copy(isDone = value) }
     override fun setPriority(value: Priority) = _state.update { it.copy(priority = value) }
     override fun setCategory(value: Long?) = _state.update { it.copy(categoryId = value) }
-    override fun setDueDate(value: LocalDate?) =
-        _state.update { it.copy(dueDate = value, remind = it.remind && value != null) }
+    override fun setDueDate(value: LocalDate?) = _state.update { it.copy(dueDate = value) }
     override fun setDueTime(value: LocalTime) = _state.update { it.copy(dueTime = value) }
-    override fun setRemind(value: Boolean) = _state.update { it.copy(remind = value && it.hasDate) }
+    override fun toggleRepeatDay(day: DayOfWeek) = _state.update { it.copy(repeatDays = it.repeatDays.toggleDay(day)) }
+    override fun setRepeatTime(value: LocalTime) = _state.update { it.copy(repeatTime = value) }
+
+    /** A pasted multi-line list becomes one item per line. */
+    override fun setNewItemText(value: String) {
+        val lines = value.split('\n')
+        _state.update { s ->
+            s.copy(items = s.items + lines.dropLast(1).toDrafts(), newItemText = lines.last())
+        }
+    }
+
+    override fun addNewItem() = _state.update { s ->
+        s.copy(items = s.items + listOf(s.newItemText).toDrafts(), newItemText = "")
+    }
+
+    private fun List<String>.toDrafts(): List<ChecklistItem> =
+        filter { it.isNotBlank() }.map { ChecklistItem(id = nextDraftId--, taskId = taskId, text = it.trim()) }
+
+    override fun setItemText(id: Long, text: String) = updateItem(id) { it.copy(text = text) }
+
+    /** Ticks on a saved task are kept right away, like ticking a task in the list. */
+    override fun setItemDone(id: Long, done: Boolean) {
+        updateItem(id) { it.copy(isDone = done) }
+        if (id > 0) viewModelScope.launch { repository.setItemDone(id, done) }
+    }
+
+    override fun removeItem(id: Long) = _state.update { s -> s.copy(items = s.items.filterNot { it.id == id }) }
+
+    private fun updateItem(id: Long, change: (ChecklistItem) -> ChecklistItem) =
+        _state.update { s -> s.copy(items = s.items.map { if (it.id == id) change(it) else it }) }
 
     override fun createCategory(category: Category) {
         if (category.name.isBlank()) return
@@ -124,6 +187,7 @@ class TaskEditViewModel(
     }
 
     fun save(onDone: () -> Unit) {
+        addNewItem()
         val s = _state.value
         if (!s.canSave) return
         val base = original ?: Task(title = "")
@@ -134,10 +198,14 @@ class TaskEditViewModel(
             priority = s.priority,
             categoryId = s.categoryId,
             dueAt = s.dueAt(zone),
-            remind = s.remind,
+            repeatDays = s.repeatDays,
+            repeatMinutes = s.repeatTime.minuteOfDay(),
         )
+        val items = s.items
+            .filter { it.text.isNotBlank() }
+            .map { it.copy(id = it.id.coerceAtLeast(0), text = it.text.trim()) }
         viewModelScope.launch {
-            repository.saveTask(task)
+            repository.saveTask(task, items)
             onDone()
         }
     }

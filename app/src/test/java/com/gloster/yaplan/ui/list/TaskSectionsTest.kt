@@ -70,4 +70,16 @@ class TaskSectionsTest {
         assertEquals("Son bir tane. Bitir lan!", progressMessage(DailyProgress(3, 4)))
         assertEquals("Hepsini yaptın lan!", progressMessage(DailyProgress(4, 4)))
     }
+
+    @Test
+    fun widgetShowsOpenTasksThenTodaysDoneOnes() {
+        val tasks = listOf(
+            task(1, at(19, 14, 0), done = true),
+            task(2, at(18, 9, 0), done = true),
+            task(3, null),
+            task(4, at(19, 18, 0)),
+            task(5, at(18, 18, 0)),
+        )
+        assertEquals(listOf(5L, 4L, 3L, 1L), widgetTasks(tasks, now, zone).map { it.id })
+    }
 }

@@ -7,7 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -42,7 +41,6 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
 import com.gloster.yaplan.DeepLinks
 import com.gloster.yaplan.R
 import com.gloster.yaplan.YapLanApp
@@ -105,8 +103,6 @@ class HabitWidget : GlanceAppWidget() {
     }
 }
 
-private fun color(c: Color) = ColorProvider(c)
-
 @Composable
 private fun HabitWidgetContent(content: WidgetContent, today: LocalDate, configure: Intent) {
     val context = LocalContext.current
@@ -124,19 +120,11 @@ private fun HabitWidgetContent(content: WidgetContent, today: LocalDate, configu
     ) {
         when (content) {
             WidgetContent.Loading -> Unit
-            WidgetContent.Unassigned -> Message("Alışkanlık seçmek için dokun")
-            WidgetContent.Deleted -> Message("Bu alışkanlık silinmiş.\nBaşka birini seçmek için dokun")
+            WidgetContent.Unassigned -> WidgetMessage("Alışkanlık seçmek için dokun")
+            WidgetContent.Deleted -> WidgetMessage("Bu alışkanlık silinmiş.\nBaşka birini seçmek için dokun")
             is WidgetContent.Ready -> MonthChain(content.habit, content.done, today)
         }
     }
-}
-
-@Composable
-private fun Message(text: String) {
-    Text(
-        text,
-        style = TextStyle(color = color(Yap.TextMuted), fontSize = 14.sp, textAlign = TextAlign.Center),
-    )
 }
 
 @Composable

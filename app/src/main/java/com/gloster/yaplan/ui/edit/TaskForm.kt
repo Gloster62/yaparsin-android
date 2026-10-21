@@ -3,8 +3,6 @@ package com.gloster.yaplan.ui.edit
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,13 +11,10 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Notifications
@@ -30,7 +25,6 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -54,6 +48,8 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,6 +58,7 @@ import com.gloster.yaplan.YapLanApp
 import com.gloster.yaplan.data.Category
 import com.gloster.yaplan.data.nextCategoryColor
 import com.gloster.yaplan.data.Priority
+import com.gloster.yaplan.data.hasDay
 import com.gloster.yaplan.ui.categories.CategoryEditorSheet
 import com.gloster.yaplan.ui.components.CategoryDot
 import com.gloster.yaplan.ui.components.ChoiceChip
@@ -69,15 +66,19 @@ import com.gloster.yaplan.ui.components.FieldLabel
 import com.gloster.yaplan.ui.components.LabeledTextField
 import com.gloster.yaplan.ui.components.PriorityBars
 import com.gloster.yaplan.ui.components.SelectableBox
-import com.gloster.yaplan.ui.components.yapSwitchColors
 import com.gloster.yaplan.ui.dayLabel
+import com.gloster.yaplan.ui.dayName
+import com.gloster.yaplan.ui.formatRepeat
 import com.gloster.yaplan.ui.formatShortDate
 import com.gloster.yaplan.ui.formatTime
 import com.gloster.yaplan.ui.theme.PlexMono
 import com.gloster.yaplan.ui.theme.Yap
+import com.gloster.yaplan.ui.weekdayInitials
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
 import java.time.ZoneOffset
 
 private val presetTimes = listOf(9, 12, 14, 18, 20).map { LocalTime.of(it, 0) }
@@ -97,10 +98,24 @@ fun TaskForm(
     val scheduler = (context.applicationContext as YapLanApp).scheduler
     val today = remember { LocalDate.now() }
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
-    var showTimePicker by rememberSaveable { mutableStateOf(false) }
+    var timePickerFor by rememberSaveable { mutableStateOf<TimeTarget?>(null) }
     var showExactAlarmInfo by rememberSaveable { mutableStateOf(false) }
+    var exactAlarmAsked by rememberSaveable { mutableStateOf(false) }
     var showNewCategory by rememberSaveable { mutableStateOf(false) }
     val titleFocus = remember { FocusRequester() }
+
+    /** Without the permission reminders can come minutes late; explain that once per form. */
+    fun checkExactAlarm() {
+        if (!exactAlarmAsked && !scheduler.canScheduleExact()) {
+            exactAlarmAsked = true
+            showExactAlarmInfo = true
+        }
+    }
+
+    fun setDueDate(date: LocalDate?) {
+        actions.setDueDate(date)
+        if (date != null) checkExactAlarm()
+    }
 
     if (autoFocusTitle) {
         LaunchedEffect(Unit) { titleFocus.requestFocus() }
@@ -126,6 +141,12 @@ fun TaskForm(
             singleLine = false,
             minLines = 2,
             containerColor = fieldColor,
+        )
+        ChecklistEditor(
+            items = state.items,
+            newItemText = state.newItemText,
+            actions = actions,
+            fieldColor = fieldColor,
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -165,9 +186,9 @@ fun TaskForm(
             val date = state.dueDate
             val isOther = date != null && date != today && date != today.plusDays(1)
             Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DateOption("Yok", date == null) { actions.setDueDate(null) }
-                DateOption("Bugün", date == today) { actions.setDueDate(today) }
-                DateOption("Yarın", date == today.plusDays(1)) { actions.setDueDate(today.plusDays(1)) }
+                DateOption("Yok", date == null) { setDueDate(null) }
+                DateOption("Bugün", date == today) { setDueDate(today) }
+                DateOption("Yarın", date == today.plusDays(1)) { setDueDate(today.plusDays(1)) }
                 DateOption(if (isOther) formatShortDate(date) else "Başka gün", isOther) { showDatePicker = true }
             }
         }
@@ -175,43 +196,26 @@ fun TaskForm(
         if (state.hasDate) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 FieldLabel("Saat")
-                val isCustom = state.dueTime !in presetTimes
-                Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    presetTimes.forEach { t ->
-                        SelectableBox(
-                            selected = state.dueTime == t,
-                            onClick = { actions.setDueTime(t) },
-                            modifier = Modifier.weight(1f),
-                            height = 44.dp,
-                            horizontalPadding = 0.dp,
-                        ) {
-                            Text(formatTime(t), fontFamily = PlexMono, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                    SelectableBox(
-                        selected = isCustom,
-                        onClick = { showTimePicker = true },
-                        modifier = Modifier.weight(1.2f),
-                        height = 44.dp,
-                        horizontalPadding = 0.dp,
-                    ) {
-                        if (isCustom) {
-                            Text(formatTime(state.dueTime), fontFamily = PlexMono, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        } else {
-                            Text("Diğer", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
+                TimeChoices(state.dueTime, onPreset = actions::setDueTime, onOther = { timePickerFor = TimeTarget.DUE })
+                val dueAt = state.dueAt(ZoneId.systemDefault())
+                FormHint(
+                    if (dueAt != null && dueAt <= System.currentTimeMillis()) {
+                        "Bu saat geçti, bildirim gelmeyecek."
+                    } else {
+                        "Bildirim: ${dayLabel(state.dueDate!!, today)} ${formatTime(state.dueTime)}"
+                    },
+                )
             }
         }
 
-        ReminderSwitch(
+        RepeatPicker(
             state = state,
-            today = today,
-            onChange = {
-                actions.setRemind(it)
-                if (it && !scheduler.canScheduleExact()) showExactAlarmInfo = true
+            onToggleDay = { day ->
+                actions.toggleRepeatDay(day)
+                if (!state.repeatDays.hasDay(day)) checkExactAlarm()
             },
+            onPresetTime = actions::setRepeatTime,
+            onOtherTime = { timePickerFor = TimeTarget.REPEAT },
         )
     }
 
@@ -224,7 +228,7 @@ fun TaskForm(
             confirmButton = {
                 TextButton(onClick = {
                     dateState.selectedDateMillis?.let {
-                        actions.setDueDate(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate())
+                        setDueDate(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate())
                     }
                     showDatePicker = false
                 }) { Text("Tamam") }
@@ -239,20 +243,22 @@ fun TaskForm(
         }
     }
 
-    if (showTimePicker) {
-        val timeState = rememberTimePickerState(state.dueTime.hour, state.dueTime.minute, is24Hour = true)
+    timePickerFor?.let { target ->
+        val initial = if (target == TimeTarget.DUE) state.dueTime else state.repeatTime
+        val timeState = rememberTimePickerState(initial.hour, initial.minute, is24Hour = true)
         AlertDialog(
-            onDismissRequest = { showTimePicker = false },
+            onDismissRequest = { timePickerFor = null },
             containerColor = Yap.DialogSurface,
             title = { Text("Saat seç") },
             text = { TimePicker(state = timeState) },
             confirmButton = {
                 TextButton(onClick = {
-                    actions.setDueTime(LocalTime.of(timeState.hour, timeState.minute))
-                    showTimePicker = false
+                    val time = LocalTime.of(timeState.hour, timeState.minute)
+                    if (target == TimeTarget.DUE) actions.setDueTime(time) else actions.setRepeatTime(time)
+                    timePickerFor = null
                 }) { Text("Tamam") }
             },
-            dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("İptal") } },
+            dismissButton = { TextButton(onClick = { timePickerFor = null }) { Text("İptal") } },
         )
     }
 
@@ -341,45 +347,89 @@ private fun NewCategoryChip(onClick: () -> Unit) {
     }
 }
 
+private enum class TimeTarget { DUE, REPEAT }
+
 @Composable
-private fun ReminderSwitch(state: TaskEditState, today: LocalDate, onChange: (Boolean) -> Unit) {
-    val enabled = state.hasDate
-    val hint = when {
-        !enabled -> "Önce son tarih seç"
-        state.remind -> "Bildirim gelecek: ${dayLabel(state.dueDate!!, today)} ${formatTime(state.dueTime)}"
-        else -> "Kapalı"
-    }
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .defaultMinSize(minHeight = 60.dp)
-            .background(Yap.Surface, RoundedCornerShape(6.dp))
-            .border(1.dp, Yap.Border, RoundedCornerShape(6.dp))
-            .toggleable(value = state.remind, enabled = enabled, role = Role.Switch, onValueChange = onChange)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Icon(
-            Icons.Outlined.Notifications,
-            contentDescription = null,
-            tint = if (state.remind) Yap.Accent else Yap.TextMuted,
-            modifier = Modifier.size(20.dp),
-        )
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                "Hatırlat",
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
-                fontWeight = FontWeight.Medium,
-                color = if (enabled) Yap.Text else Yap.TextMuted,
-            )
-            Text(hint, style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp), color = Yap.TextMuted)
+private fun TimeChoices(selected: LocalTime, onPreset: (LocalTime) -> Unit, onOther: () -> Unit) {
+    val isCustom = selected !in presetTimes
+    Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        presetTimes.forEach { t ->
+            SelectableBox(
+                selected = selected == t,
+                onClick = { onPreset(t) },
+                modifier = Modifier.weight(1f),
+                height = 44.dp,
+                horizontalPadding = 0.dp,
+            ) {
+                Text(formatTime(t), fontFamily = PlexMono, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
         }
-        Switch(
-            checked = state.remind,
-            onCheckedChange = null,
-            enabled = enabled,
-            colors = yapSwitchColors(),
-        )
+        SelectableBox(
+            selected = isCustom,
+            onClick = onOther,
+            modifier = Modifier.weight(1.2f),
+            height = 44.dp,
+            horizontalPadding = 0.dp,
+        ) {
+            if (isCustom) {
+                Text(formatTime(selected), fontFamily = PlexMono, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            } else {
+                Text("Diğer", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun FormHint(text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Icon(Icons.Outlined.Notifications, contentDescription = null, tint = Yap.TextMuted, modifier = Modifier.size(15.dp))
+        Text(text, style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp), color = Yap.TextMuted)
+    }
+}
+
+/** Weekdays to be reminded on, at one time of day, until the task is done. */
+@Composable
+private fun RepeatPicker(
+    state: TaskEditState,
+    onToggleDay: (DayOfWeek) -> Unit,
+    onPresetTime: (LocalTime) -> Unit,
+    onOtherTime: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row {
+            FieldLabel("Düzenli hatırlat")
+            Text(
+                " (isteğe bağlı)",
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, fontWeight = FontWeight.Normal),
+                color = Yap.TextMuted,
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            DayOfWeek.entries.forEach { day ->
+                SelectableBox(
+                    selected = state.repeatDays.hasDay(day),
+                    onClick = { onToggleDay(day) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { contentDescription = dayName(day) },
+                    role = Role.Checkbox,
+                    height = 44.dp,
+                    horizontalPadding = 0.dp,
+                ) {
+                    Text(weekdayInitials[day.ordinal], fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                }
+            }
+        }
+        if (state.repeats) {
+            TimeChoices(state.repeatTime, onPreset = onPresetTime, onOther = onOtherTime)
+            FormHint("${formatRepeat(state.repeatDays, state.repeatTime)} · görevi bitirince durur")
+        } else {
+            Text(
+                "Seçtiğin günlerde bildirim gelir. Ör. her Pazartesi ve Perşembe.",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
+                color = Yap.TextFaint,
+            )
+        }
     }
 }

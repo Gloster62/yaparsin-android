@@ -20,7 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Checklist
+import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -33,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -43,8 +45,12 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gloster.yaplan.data.Category
+import com.gloster.yaplan.data.ChecklistProgress
 import com.gloster.yaplan.data.Task
+import com.gloster.yaplan.data.repeatTime
 import com.gloster.yaplan.ui.dueLabel
+import com.gloster.yaplan.ui.formatRepeat
+import com.gloster.yaplan.ui.theme.PlexMono
 import com.gloster.yaplan.ui.theme.Yap
 import java.time.LocalDate
 
@@ -61,8 +67,9 @@ fun TaskCheckbox(checked: Boolean, overdue: Boolean, modifier: Modifier = Modifi
 }
 
 /**
- * One task line: title, optional note, then a meta line (category, due time or "Gecikti", bell)
- * and the priority on the right. [onToggle] null hides the checkbox (search results).
+ * One task line: title, optional note, then a meta line (category, due time or "Gecikti",
+ * repeat days, list progress) and the priority on the right. [onToggle] null hides the checkbox
+ * (search results).
  */
 @Composable
 fun TaskRow(
@@ -73,6 +80,7 @@ fun TaskRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onToggle: (() -> Unit)? = null,
+    progress: ChecklistProgress? = null,
     highlight: String = "",
 ) {
     val overdue = !task.isDone && task.dueAt != null && task.dueAt < now
@@ -125,7 +133,7 @@ fun TaskRow(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    TaskMeta(task, category, overdue, today)
+                    TaskMeta(task, category, progress, overdue, today)
                 }
                 Row(
                     Modifier.padding(top = 3.dp),
@@ -148,10 +156,11 @@ fun TaskRow(
 }
 
 @Composable
-private fun TaskMeta(task: Task, category: Category?, overdue: Boolean, today: LocalDate) {
+private fun TaskMeta(task: Task, category: Category?, progress: ChecklistProgress?, overdue: Boolean, today: LocalDate) {
     val color = if (task.isDone) Yap.TextFaint else Yap.TextMuted
     val metaStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 12.5.sp, lineHeight = 18.sp)
-    if (category == null && task.dueAt == null) return
+    val repeats = task.repeatDays != 0 && !task.isDone
+    if (category == null && task.dueAt == null && progress == null && !repeats) return
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -186,8 +195,27 @@ private fun TaskMeta(task: Task, category: Category?, overdue: Boolean, today: L
                 Text(dueLabel(dueAt, today), style = metaStyle, color = color)
             }
         }
-        if (task.remind && !task.isDone) {
-            Icon(Icons.Outlined.Notifications, contentDescription = "Hatırlatma açık", tint = color, modifier = Modifier.size(14.dp))
+        if (repeats) {
+            Row(
+                Modifier.semantics(mergeDescendants = true) {},
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Icon(Icons.Outlined.Repeat, contentDescription = "Düzenli hatırlatma", tint = color, modifier = Modifier.size(13.dp))
+                Text(formatRepeat(task.repeatDays, task.repeatTime), style = metaStyle, color = color)
+            }
+        }
+        if (progress != null) {
+            Row(
+                Modifier.clearAndSetSemantics {
+                    contentDescription = "Liste: ${progress.total} maddeden ${progress.done} tanesi tamam"
+                },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Icon(Icons.Outlined.Checklist, contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
+                Text("${progress.done}/${progress.total}", style = metaStyle, fontFamily = PlexMono, color = color)
+            }
         }
     }
 }

@@ -82,13 +82,13 @@ private fun AppNavigation() {
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(repository) {
-        repository.deletedTasks.collectLatest { task ->
+        repository.deletedTasks.collectLatest { deleted ->
             val result = snackbar.showSnackbar(
-                message = "“${task.title}” silindi",
+                message = "“${deleted.task.title}” silindi",
                 actionLabel = "Geri al",
                 duration = SnackbarDuration.Long,
             )
-            if (result == SnackbarResult.ActionPerformed) scope.launch { repository.saveTask(task) }
+            if (result == SnackbarResult.ActionPerformed) scope.launch { repository.restore(deleted) }
         }
     }
 
@@ -127,7 +127,16 @@ private fun AppNavigation() {
                     .padding(padding)
                     .consumeWindowInsets(padding),
             ) {
-                composable(TopLevelDestination.TASKS.route) { TaskListScreen(onOpenTask = openTask) }
+                composable(
+                    TopLevelDestination.TASKS.route,
+                    arguments = listOf(navArgument(DeepLinks.ARG_NEW_TASK) { type = NavType.BoolType; defaultValue = false }),
+                    deepLinks = listOf(navDeepLink { uriPattern = DeepLinks.TASKS }),
+                ) { entry ->
+                    TaskListScreen(
+                        onOpenTask = openTask,
+                        startWithNewTask = entry.arguments?.getBoolean(DeepLinks.ARG_NEW_TASK) == true,
+                    )
+                }
                 composable(
                     TopLevelDestination.HABITS.route,
                     deepLinks = listOf(navDeepLink { uriPattern = DeepLinks.HABITS }),
@@ -137,6 +146,7 @@ private fun AppNavigation() {
                 composable(
                     "edit/{${TaskEditViewModel.ARG_TASK_ID}}",
                     arguments = listOf(navArgument(TaskEditViewModel.ARG_TASK_ID) { type = NavType.LongType }),
+                    deepLinks = listOf(navDeepLink { uriPattern = DeepLinks.TASK }),
                 ) {
                     TaskEditScreen(onBack = { nav.popBackStack() })
                 }

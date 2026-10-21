@@ -138,6 +138,7 @@ fun SearchScreen(
                                 now = state.now,
                                 today = state.today,
                                 onClick = { onOpenTask(task.id) },
+                                progress = state.checklist[task.id],
                                 highlight = state.query,
                             )
                         }

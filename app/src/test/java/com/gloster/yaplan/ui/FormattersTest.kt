@@ -1,7 +1,11 @@
 package com.gloster.yaplan.ui
 
+import com.gloster.yaplan.data.EVERY_DAY
+import com.gloster.yaplan.data.WEEKDAYS
+import com.gloster.yaplan.data.WEEKEND
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.YearMonth
 import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
@@ -35,5 +39,23 @@ class FormattersTest {
     fun monthTitle() {
         assertEquals("Ekim 2026", formatMonth(YearMonth.of(2026, 10)))
         assertEquals("Şubat 2027", formatMonth(YearMonth.of(2027, 2)))
+    }
+
+    @Test
+    fun repeatDaysReadNaturally() {
+        val mondayWednesdayFriday = 0b001_0101
+        assertEquals("Her gün 09:00", formatRepeat(EVERY_DAY, LocalTime.of(9, 0)))
+        assertEquals("Hafta içi", formatRepeatDays(WEEKDAYS))
+        assertEquals("Hafta sonu", formatRepeatDays(WEEKEND))
+        assertEquals("Her Salı", formatRepeatDays(0b000_0010))
+        assertEquals("Pt, Ça, Cu", formatRepeatDays(mondayWednesdayFriday))
+    }
+
+    @Test
+    fun compactDueLabelShowsOnlyTheTimeForToday() {
+        fun at(day: Int, hour: Int) = LocalDateTime.of(2026, 10, day, hour, 0).toInstant(ZoneOffset.UTC).toEpochMilli()
+        assertEquals("18:00", compactDueLabel(at(19, 18), today, ZoneOffset.UTC))
+        assertEquals("Yarın", compactDueLabel(at(20, 9), today, ZoneOffset.UTC))
+        assertEquals("Dün", compactDueLabel(at(18, 9), today, ZoneOffset.UTC))
     }
 }

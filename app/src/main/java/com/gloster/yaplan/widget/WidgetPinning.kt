@@ -14,30 +14,43 @@ import kotlinx.coroutines.launch
  * Asks the launcher to place a calendar widget for [habitId]. False when the launcher can't pin
  * widgets; then the user has to add it from the home screen's widget list.
  */
-fun requestHabitWidget(context: Context, habitId: Long): Boolean {
+fun requestHabitWidget(context: Context, habitId: Long): Boolean =
+    requestPin(context, HabitWidgetReceiver::class.java, ACTION_HABIT, habitId)
+
+/** Like [requestHabitWidget], for one task and its list. */
+fun requestTaskWidget(context: Context, taskId: Long): Boolean =
+    requestPin(context, TaskWidgetReceiver::class.java, ACTION_TASK, taskId)
+
+private fun requestPin(context: Context, receiver: Class<*>, action: String, id: Long): Boolean {
     val manager = AppWidgetManager.getInstance(context)
     if (!manager.isRequestPinAppWidgetSupported) return false
-    // Mutable: the launcher fills in EXTRA_APPWIDGET_ID of the widget it placed.
+    // Mutable: the launcher fills in EXTRA_APPWIDGET_ID of the widget it placed. The action keeps
+    // a habit and a task with the same id from sharing one PendingIntent.
     val onPinned = PendingIntent.getBroadcast(
         context,
-        habitId.toInt(),
-        Intent(context, HabitWidgetPinnedReceiver::class.java).putExtra(EXTRA_HABIT_ID, habitId),
+        id.toInt(),
+        Intent(context, WidgetPinnedReceiver::class.java).setAction(action).putExtra(EXTRA_ID, id),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
     )
-    return manager.requestPinAppWidget(ComponentName(context, HabitWidgetReceiver::class.java), null, onPinned)
+    return manager.requestPinAppWidget(ComponentName(context, receiver), null, onPinned)
 }
 
-private const val EXTRA_HABIT_ID = "habit_id"
+private const val ACTION_HABIT = "com.gloster.yaplan.PINNED_HABIT"
+private const val ACTION_TASK = "com.gloster.yaplan.PINNED_TASK"
+private const val EXTRA_ID = "id"
 
-class HabitWidgetPinnedReceiver : BroadcastReceiver() {
+class WidgetPinnedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
-        val habitId = intent.getLongExtra(EXTRA_HABIT_ID, -1)
-        if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID || habitId == -1L) return
+        val id = intent.getLongExtra(EXTRA_ID, -1)
+        if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID || id == -1L) return
         val pending = goAsync()
         CoroutineScope(Dispatchers.Default).launch {
             try {
-                HabitWidget.assign(context, appWidgetId, habitId)
+                when (intent.action) {
+                    ACTION_HABIT -> HabitWidget.assign(context, appWidgetId, id)
+                    ACTION_TASK -> TaskWidget.assign(context, appWidgetId, id)
+                }
             } finally {
                 pending.finish()
             }

@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gloster.yaplan.YapLanApp
 import com.gloster.yaplan.data.Category
+import com.gloster.yaplan.data.ChecklistProgress
 import com.gloster.yaplan.data.Task
 import com.gloster.yaplan.data.TaskRepository
 import com.gloster.yaplan.ui.toLocalDateTime
@@ -21,6 +22,7 @@ data class SearchUiState(
     val query: String = "",
     val results: List<Task> = emptyList(),
     val categoriesById: Map<Long, Category> = emptyMap(),
+    val checklist: Map<Long, ChecklistProgress> = emptyMap(),
     val now: Long = System.currentTimeMillis(),
     val today: LocalDate = LocalDate.now(),
 ) {
@@ -40,12 +42,13 @@ class SearchViewModel(repository: TaskRepository) : ViewModel() {
     private val query = MutableStateFlow("")
 
     val state: StateFlow<SearchUiState> =
-        combine(repository.allTasks, repository.allCategories, query) { tasks, categories, q ->
+        combine(repository.allTasks, repository.allCategories, repository.checklistProgress, query) { tasks, categories, checklist, q ->
             val now = System.currentTimeMillis()
             SearchUiState(
                 query = q,
                 results = searchTasks(tasks, q),
                 categoriesById = categories.associateBy { it.id },
+                checklist = checklist,
                 now = now,
                 today = now.toLocalDateTime().toLocalDate(),
             )

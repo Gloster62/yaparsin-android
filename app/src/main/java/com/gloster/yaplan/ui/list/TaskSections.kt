@@ -88,3 +88,10 @@ fun progressMessage(progress: DailyProgress): String = with(progress) {
         else -> "$left tane kaldı. Yap lan!"
     }
 }
+
+/** The list widget: open tasks in list order, then today's finished ones so a mistaken tick can be undone. */
+fun widgetTasks(tasks: List<Task>, now: Long, zone: ZoneId): List<Task> {
+    val today = now.toLocalDateTime(zone).toLocalDate()
+    val doneToday = tasks.filter { it.isDone && it.dueAt?.toLocalDateTime(zone)?.toLocalDate() == today }
+    return applyFilter(tasks, TaskFilter(tab = TaskTab.OPEN)) + doneToday.sortedBy { it.dueAt }
+}
