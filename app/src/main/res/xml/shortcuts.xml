@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_add_widget"
+        android:shortcutId="add_widget"
+        android:shortcutLongLabel="@string/shortcut_add_widget_long"
+        android:shortcutShortLabel="@string/shortcut_add_widget_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.gloster.yaplan.widget.AddWidgetActivity"
+            android:targetPackage="com.gloster.yaplan" />
+    </shortcut>
+</shortcuts>

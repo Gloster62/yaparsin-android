@@ -47,8 +47,22 @@ class HabitRepository(
 
     suspend fun rescheduleReminders() {
         habits.withReminder().forEach(scheduler::updateHabit)
+        scheduler.scheduleChainSaver()
+    }
+
+    /** Chains that break at midnight unless done today, longest first. */
+    suspend fun atRiskToday(today: LocalDate = LocalDate.now()): List<AtRiskChain> {
+        val doneByHabit = habits.allChecks().doneDaysByHabit()
+        return habits.all()
+            .mapNotNull { habit ->
+                val done = doneByHabit[habit.id].orEmpty()
+                if (isAtRisk(done, today)) AtRiskChain(habit, currentStreak(done, today)) else null
+            }
+            .sortedByDescending { it.streak }
     }
 }
+
+data class AtRiskChain(val habit: Habit, val streak: Int)
 
 private fun List<Long>.toDates(): Set<LocalDate> = mapTo(HashSet(), LocalDate::ofEpochDay)
 

@@ -28,11 +28,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -46,14 +48,21 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gloster.yaplan.data.Habit
+import com.gloster.yaplan.ui.components.LocalAppSnackbar
 import com.gloster.yaplan.ui.components.PrimaryButton
 import com.gloster.yaplan.ui.components.ProgressCard
 import com.gloster.yaplan.ui.components.TaskCheckbox
+import com.gloster.yaplan.ui.components.WidgetPromoCard
 import com.gloster.yaplan.ui.components.YapSnackbarHost
 import com.gloster.yaplan.ui.formatHeaderDate
 import com.gloster.yaplan.ui.theme.PlexMono
 import com.gloster.yaplan.ui.theme.Yap
+import com.gloster.yaplan.widget.ADD_WIDGET_BY_HAND
+import com.gloster.yaplan.widget.HabitWidgetReceiver
+import com.gloster.yaplan.widget.rememberWidgetPromo
+import com.gloster.yaplan.widget.requestHabitWidget
 import java.time.LocalDate
+import kotlinx.coroutines.launch
 
 @Composable
 fun HabitListScreen(
@@ -62,6 +71,10 @@ fun HabitListScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showNewHabit by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    val snackbar = LocalAppSnackbar.current
+    val scope = rememberCoroutineScope()
+    val promo = rememberWidgetPromo("habits", HabitWidgetReceiver::class.java)
 
     Scaffold(
         containerColor = Yap.Background,
@@ -97,6 +110,19 @@ fun HabitListScreen(
                 label = "bugün yapıldı",
                 message = habitProgressMessage(state.doneToday, state.rows.size),
             )
+            if (promo.visible) {
+                WidgetPromoCard(
+                    title = "Zincirini ana ekranda gör",
+                    body = "Takvim widget'ı her gün zincirini hatırlatır.",
+                    onAdd = {
+                        if (!requestHabitWidget(context, state.rows.first().habit.id)) {
+                            scope.launch { snackbar.showSnackbar(ADD_WIDGET_BY_HAND) }
+                        }
+                    },
+                    onDismiss = promo.dismiss,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+            }
             Box(Modifier.height(12.dp))
             HorizontalDivider(color = Yap.Divider)
             LazyColumn(

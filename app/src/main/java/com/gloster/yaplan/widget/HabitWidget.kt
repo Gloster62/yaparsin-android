@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -44,9 +45,11 @@ import androidx.glance.text.TextStyle
 import com.gloster.yaplan.DeepLinks
 import com.gloster.yaplan.R
 import com.gloster.yaplan.YapLanApp
+import com.gloster.yaplan.data.ChainMood
 import com.gloster.yaplan.data.ChainPart
 import com.gloster.yaplan.data.DayStatus
 import com.gloster.yaplan.data.Habit
+import com.gloster.yaplan.data.chainMood
 import com.gloster.yaplan.data.chainPart
 import com.gloster.yaplan.data.currentStreak
 import com.gloster.yaplan.data.dayStatus
@@ -56,6 +59,7 @@ import com.gloster.yaplan.ui.formatMonth
 import com.gloster.yaplan.ui.theme.Yap
 import com.gloster.yaplan.ui.weekdayInitials
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.YearMonth
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
@@ -90,7 +94,7 @@ class HabitWidget : GlanceAppWidget() {
                     }
                 }
             }.collectAsState(WidgetContent.Loading)
-            HabitWidgetContent(content, LocalDate.now(), configure)
+            HabitWidgetContent(content, LocalDateTime.now(), configure)
         }
     }
 
@@ -104,16 +108,21 @@ class HabitWidget : GlanceAppWidget() {
 }
 
 @Composable
-private fun HabitWidgetContent(content: WidgetContent, today: LocalDate, configure: Intent) {
+private fun HabitWidgetContent(content: WidgetContent, now: LocalDateTime, configure: Intent) {
     val context = LocalContext.current
     val open = when (content) {
         is WidgetContent.Ready -> DeepLinks.intent(context, DeepLinks.habit(content.habit.id))
         else -> configure
     }
+    val background = when ((content as? WidgetContent.Ready)?.let { chainMood(it.done, now) }) {
+        ChainMood.DONE_TODAY -> R.drawable.widget_background_done
+        ChainMood.LAST_CALL -> R.drawable.widget_background_danger
+        else -> R.drawable.widget_background
+    }
     Box(
         GlanceModifier
             .fillMaxSize()
-            .background(ImageProvider(R.drawable.widget_background))
+            .background(ImageProvider(background))
             .padding(12.dp)
             .clickable(actionStartActivity(open)),
         contentAlignment = Alignment.Center,
@@ -122,16 +131,18 @@ private fun HabitWidgetContent(content: WidgetContent, today: LocalDate, configu
             WidgetContent.Loading -> Unit
             WidgetContent.Unassigned -> WidgetMessage("Alışkanlık seçmek için dokun")
             WidgetContent.Deleted -> WidgetMessage("Bu alışkanlık silinmiş.\nBaşka birini seçmek için dokun")
-            is WidgetContent.Ready -> MonthChain(content.habit, content.done, today)
+            is WidgetContent.Ready -> MonthChain(content.habit, content.done, now)
         }
     }
 }
 
 @Composable
-private fun MonthChain(habit: Habit, done: Set<LocalDate>, today: LocalDate) {
+private fun MonthChain(habit: Habit, done: Set<LocalDate>, now: LocalDateTime) {
+    val today = now.toLocalDate()
     val month = YearMonth.from(today)
     val weeks = monthWeeks(month)
     val streak = currentStreak(done, today)
+    val mood = chainMood(done, now)
     val startDay = habit.startDay()
     val rowHeight = (LocalSize.current.height - 84.dp) / weeks.size
     val bandHeight = (rowHeight - 4.dp).coerceIn(16.dp, 34.dp)
@@ -148,13 +159,27 @@ private fun MonthChain(habit: Habit, done: Set<LocalDate>, today: LocalDate) {
             Text(
                 if (streak > 0) "$streak gün" else "Zincir yok",
                 style = TextStyle(
-                    color = color(if (streak > 0) Yap.Accent else Yap.TextMuted),
+                    color = color(
+                        when {
+                            mood == ChainMood.LAST_CALL -> Yap.Danger
+                            streak > 0 -> Yap.Accent
+                            else -> Yap.TextMuted
+                        },
+                    ),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                 ),
             )
         }
-        Text(formatMonth(month), style = TextStyle(color = color(Yap.TextMuted), fontSize = 12.sp))
+        Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                moodMessage(mood),
+                modifier = GlanceModifier.defaultWeight(),
+                style = TextStyle(color = color(moodColor(mood)), fontSize = 12.sp, fontWeight = FontWeight.Medium),
+                maxLines = 1,
+            )
+            Text(formatMonth(month), style = TextStyle(color = color(Yap.TextFaint), fontSize = 11.sp))
+        }
         Spacer(GlanceModifier.height(6.dp))
         Row(GlanceModifier.fillMaxWidth()) {
             weekdayInitials.forEach {
@@ -223,4 +248,21 @@ private fun RowScope.DayCell(
             )
         }
     }
+}
+
+private fun moodMessage(mood: ChainMood): String = when (mood) {
+    ChainMood.DONE_TODAY -> "Bugün tamam, zincir sağlam"
+    ChainMood.FRESH -> "İlk halkayı bugün tak"
+    ChainMood.BROKEN -> "Zincir kırıldı, bugün yeniden başla"
+    ChainMood.CALM -> "Bugün henüz yapılmadı"
+    ChainMood.NUDGE -> "Akşam oluyor, zinciri unutma"
+    ChainMood.URGENT -> "Zincir seni bekliyor!"
+    ChainMood.LAST_CALL -> "Son şans! Gece yarısı kırılır"
+}
+
+private fun moodColor(mood: ChainMood): Color = when (mood) {
+    ChainMood.DONE_TODAY, ChainMood.URGENT -> Yap.Accent
+    ChainMood.LAST_CALL -> Yap.Danger
+    ChainMood.NUDGE -> Yap.Text
+    ChainMood.FRESH, ChainMood.BROKEN, ChainMood.CALM -> Yap.TextMuted
 }

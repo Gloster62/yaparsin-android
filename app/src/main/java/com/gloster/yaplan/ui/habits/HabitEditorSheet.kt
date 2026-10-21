@@ -1,5 +1,10 @@
 package com.gloster.yaplan.ui.habits
 
+import android.app.NotificationManager
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +19,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,10 +45,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import com.gloster.yaplan.data.Habit
 import com.gloster.yaplan.ui.components.FieldLabel
 import com.gloster.yaplan.ui.components.LabeledTextField
@@ -74,6 +82,9 @@ fun HabitEditorSheet(
     var remind by rememberSaveable { mutableStateOf(initial.reminderMinutes != null) }
     var minutes by rememberSaveable { mutableIntStateOf(initial.reminderMinutes ?: DEFAULT_MINUTES) }
     var showTimePicker by rememberSaveable { mutableStateOf(false) }
+    var alarm by rememberSaveable { mutableStateOf(initial.reminderAlarm) }
+    var showFullScreenInfo by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
     val nameFocus = remember { FocusRequester() }
     if (initial.id == 0L) {
         LaunchedEffect(Unit) { nameFocus.requestFocus() }
@@ -150,12 +161,30 @@ fun HabitEditorSheet(
                 }
             }
 
+            if (remind) {
+                ReminderStyle(
+                    alarm = alarm,
+                    onChange = {
+                        alarm = it
+                        if (it && !canUseFullScreen(context)) showFullScreenInfo = true
+                    },
+                )
+            }
+
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SecondaryButton("İptal", onClick = { close(onDismiss) }, modifier = Modifier.weight(1f))
                 PrimaryButton(
                     "Kaydet",
                     onClick = {
-                        close { onSave(initial.copy(name = name.trim(), reminderMinutes = minutes.takeIf { remind })) }
+                        close {
+                            onSave(
+                                initial.copy(
+                                    name = name.trim(),
+                                    reminderMinutes = minutes.takeIf { remind },
+                                    reminderAlarm = alarm && remind,
+                                ),
+                            )
+                        }
                     },
                     enabled = name.isNotBlank(),
                     modifier = Modifier.weight(2f),
@@ -178,6 +207,35 @@ fun HabitEditorSheet(
                 }) { Text("Tamam") }
             },
             dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("İptal") } },
+        )
+    }
+
+    if (showFullScreenInfo) {
+        AlertDialog(
+            onDismissRequest = { showFullScreenInfo = false },
+            containerColor = Yap.DialogSurface,
+            title = { Text("Tam ekran izni") },
+            text = {
+                Text(
+                    "Alarmın kilit ekranında tam ekran açılması için “Tam ekran bildirimleri” iznini açman " +
+                        "gerekiyor. İzin olmadan alarm, sesli bir bildirim olarak gelir.",
+                    color = Yap.TextSecondary,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showFullScreenInfo = false
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        context.startActivity(
+                            Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
+                                .setData("package:${context.packageName}".toUri()),
+                        )
+                    }
+                }) { Text("Ayarlara git", fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showFullScreenInfo = false }) { Text("Şimdi değil", color = Yap.Text) }
+            },
         )
     }
 }
@@ -215,5 +273,32 @@ private fun ReminderToggle(remind: Boolean, minutes: Int, onChange: (Boolean) ->
             )
         }
         Switch(checked = remind, onCheckedChange = null, colors = yapSwitchColors())
+    }
+}
+
+/** Android 14 made full-screen alarms a permission the user can switch off per app. */
+private fun canUseFullScreen(context: Context): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
+        context.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
+
+@Composable
+private fun ReminderStyle(alarm: Boolean, onChange: (Boolean) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FieldLabel("Nasıl hatırlatayım?")
+        Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SelectableBox(selected = !alarm, onClick = { onChange(false) }, modifier = Modifier.weight(1f), height = 44.dp) {
+                Icon(Icons.Outlined.Notifications, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text("Bildirim", fontWeight = FontWeight.SemiBold)
+            }
+            SelectableBox(selected = alarm, onClick = { onChange(true) }, modifier = Modifier.weight(1f), height = 44.dp) {
+                Icon(Icons.Outlined.Alarm, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text("Alarm", fontWeight = FontWeight.SemiBold)
+            }
+        }
+        Text(
+            if (alarm) "Tam ekran çalar; Yaptım, Ertele ya da Kapat diyene kadar susmaz." else "Bildirim olarak gelir.",
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
+            color = Yap.TextMuted,
+        )
     }
 }

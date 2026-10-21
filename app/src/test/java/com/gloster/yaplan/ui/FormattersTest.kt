@@ -58,4 +58,11 @@ class FormattersTest {
         assertEquals("Yarın", compactDueLabel(at(20, 9), today, ZoneOffset.UTC))
         assertEquals("Dün", compactDueLabel(at(18, 9), today, ZoneOffset.UTC))
     }
+
+    @Test
+    fun durationsInHoursAndMinutes() {
+        assertEquals("2 sa 15 dk", formatDuration((2 * 60 + 15) * 60_000L))
+        assertEquals("45 dk", formatDuration(45 * 60_000L + 59_000))
+        assertEquals("0 dk", formatDuration(-1))
+    }
 }

@@ -31,8 +31,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.CheckBox
-import androidx.compose.material.icons.outlined.IndeterminateCheckBox
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.IndeterminateCheckBox
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -48,6 +48,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -71,19 +73,28 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gloster.yaplan.data.Task
 import com.gloster.yaplan.ui.components.CategoryDot
 import com.gloster.yaplan.ui.components.ChoiceChip
+import com.gloster.yaplan.ui.components.LocalAppSnackbar
 import com.gloster.yaplan.ui.components.PrimaryButton
 import com.gloster.yaplan.ui.components.ProgressCard
 import com.gloster.yaplan.ui.components.TaskRow
+import com.gloster.yaplan.ui.components.WidgetPromoCard
 import com.gloster.yaplan.ui.components.YapSnackbarHost
 import com.gloster.yaplan.ui.edit.NewTaskSheet
 import com.gloster.yaplan.ui.formatHeaderDate
 import com.gloster.yaplan.ui.theme.PlexMono
 import com.gloster.yaplan.ui.theme.Yap
+import com.gloster.yaplan.widget.ADD_WIDGET_BY_HAND
+import com.gloster.yaplan.widget.TaskListWidgetReceiver
+import com.gloster.yaplan.widget.TaskWidgetReceiver
+import com.gloster.yaplan.widget.rememberWidgetPromo
+import com.gloster.yaplan.widget.requestTaskListWidget
+import kotlinx.coroutines.launch
 
 @Composable
 fun TaskListScreen(
@@ -93,6 +104,10 @@ fun TaskListScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showNewTask by rememberSaveable { mutableStateOf(startWithNewTask) }
+    val context = LocalContext.current
+    val snackbar = LocalAppSnackbar.current
+    val scope = rememberCoroutineScope()
+    val promo = rememberWidgetPromo("tasks", TaskListWidgetReceiver::class.java, TaskWidgetReceiver::class.java)
 
     Scaffold(
         containerColor = Yap.Background,
@@ -125,6 +140,27 @@ fun TaskListScreen(
                     onDelete = viewModel::delete,
                     onOpenTask = onOpenTask,
                     onAddTask = { showNewTask = true },
+                    promo = {
+                        if (promo.visible) {
+                            // Turned-off notifications are the moment to offer the widget instead.
+                            val notificationsOff = !NotificationManagerCompat.from(context).areNotificationsEnabled()
+                            WidgetPromoCard(
+                                title = if (notificationsOff) "Bildirimleri sevmiyor musun?" else "Görevlerin ana ekranda",
+                                body = if (notificationsOff) {
+                                    "Görevlerini ana ekrandaki widget'tan takip et."
+                                } else {
+                                    "Yapılacaklar widget'ıyla uygulamayı açmadan işaretle."
+                                },
+                                onAdd = {
+                                    if (!requestTaskListWidget(context)) {
+                                        scope.launch { snackbar.showSnackbar(ADD_WIDGET_BY_HAND) }
+                                    }
+                                },
+                                onDismiss = promo.dismiss,
+                                modifier = Modifier.padding(top = 10.dp),
+                            )
+                        }
+                    },
                 )
             }
             CelebrationBadge(
@@ -151,6 +187,7 @@ private fun TaskListContent(
     onDelete: (Task) -> Unit,
     onOpenTask: (Long) -> Unit,
     onAddTask: () -> Unit,
+    promo: @Composable () -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
         Header(state)
@@ -159,6 +196,7 @@ private fun TaskListContent(
             return@Column
         }
         ProgressCard(state.progress.done, state.progress.total, "bugün bitti", progressMessage(state.progress))
+        promo()
         Tabs(state.filter.tab, state.tabCounts, onTab)
         if (state.chips.isNotEmpty()) {
             CategoryChips(state.chips, state.filter.categoryId, onCategory)

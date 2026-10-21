@@ -1,14 +1,11 @@
 package com.gloster.yaplan.reminder
 
-import android.Manifest
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import com.gloster.yaplan.DeepLinks
 import com.gloster.yaplan.R
 import com.gloster.yaplan.YapLanApp
@@ -27,10 +24,13 @@ class HabitReminderReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val habit = app.habits.getHabit(habitId) ?: return@launch
-                app.scheduler.updateHabit(habit)
+                // A snooze is a one-off; only the daily alarm moves itself on to tomorrow.
+                if (intent.action != ACTION_SNOOZE) app.scheduler.updateHabit(habit)
                 val done = app.habits.doneDays(habitId)
                 val today = LocalDate.now()
-                if (today !in done) notify(context, habit, currentStreak(done, today))
+                if (today in done || !canNotify(context)) return@launch
+                val streak = currentStreak(done, today)
+                if (habit.reminderAlarm) ChainAlarm.ring(context, habit, streak) else notify(context, habit, streak)
             } finally {
                 pending.finish()
             }
@@ -38,35 +38,30 @@ class HabitReminderReceiver : BroadcastReceiver() {
     }
 
     private fun notify(context: Context, habit: Habit, streak: Int) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
-            != PackageManager.PERMISSION_GRANTED
-        ) return
-
         val open = PendingIntent.getActivity(
             context,
             habit.id.toInt(),
             DeepLinks.intent(context, DeepLinks.habit(habit.id)),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val text = if (streak > 0) {
-            "${habit.name} · $streak günlük zincirin seni bekliyor"
-        } else {
-            "${habit.name} · bugün henüz yapılmadı"
-        }
-        val notification = NotificationCompat.Builder(context, ReminderReceiver.CHANNEL_ID)
+        val notification = NotificationCompat.Builder(context, NotificationChannels.HABITS)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Zinciri kırma!")
-            .setContentText(text)
+            .setContentText(reminderText(habit.name, streak))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setContentIntent(open)
             .setAutoCancel(true)
+            .addAction(0, "Bugün yaptım", NotificationActionReceiver.habitDone(context, habit.id))
             .build()
-        // The tag keeps habit ids from replacing task notifications with the same number.
-        NotificationManagerCompat.from(context).notify(NOTIFICATION_TAG, habit.id.toInt(), notification)
+        NotificationManagerCompat.from(context).notify(NotificationActionReceiver.HABIT_TAG, habit.id.toInt(), notification)
     }
 
     companion object {
         const val EXTRA_HABIT_ID = "habit_id"
-        private const val NOTIFICATION_TAG = "habit"
+        const val ACTION_SNOOZE = "com.gloster.yaplan.SNOOZED_HABIT"
+
+        fun reminderText(name: String, streak: Int): String =
+            if (streak > 0) "$name · $streak günlük zincirin seni bekliyor" else "$name · bugün henüz yapılmadı"
     }
 }

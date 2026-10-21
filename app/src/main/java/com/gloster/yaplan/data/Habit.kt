@@ -1,5 +1,6 @@
 package com.gloster.yaplan.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
@@ -10,6 +11,8 @@ data class Habit(
     val name: String,
     /** Günün dakikası (20:30 → 1230); null ise hatırlatma yok. */
     val reminderMinutes: Int? = null,
+    /** Hatırlatma bildirim yerine tam ekran alarm olarak çalar. */
+    @ColumnInfo(defaultValue = "0") val reminderAlarm: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
 )
 

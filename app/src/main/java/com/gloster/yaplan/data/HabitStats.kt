@@ -3,6 +3,7 @@ package com.gloster.yaplan.data
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.YearMonth
 import java.time.ZoneId
 
@@ -10,6 +11,9 @@ import java.time.ZoneId
 enum class ChainPart { SINGLE, START, MIDDLE, END }
 
 enum class DayStatus { DONE, TODAY, MISSED, FUTURE, NOT_STARTED }
+
+/** How today looks for one chain; the hour buckets get more urgent towards midnight. */
+enum class ChainMood { DONE_TODAY, FRESH, BROKEN, CALM, NUDGE, URGENT, LAST_CALL }
 
 data class MonthScore(val done: Int, val days: Int)
 
@@ -76,3 +80,32 @@ fun monthScore(month: YearMonth, done: Set<LocalDate>, today: LocalDate, startDa
 
 /** The next time [minutes] past midnight comes round after [now]. */
 fun nextReminderAt(now: Long, minutes: Int, zone: ZoneId): Long = nextRepeatAt(now, EVERY_DAY, minutes, zone)!!
+
+fun chainMood(done: Set<LocalDate>, now: LocalDateTime): ChainMood {
+    val today = now.toLocalDate()
+    return when {
+        today in done -> ChainMood.DONE_TODAY
+        !isAtRisk(done, today) -> if (done.isEmpty()) ChainMood.FRESH else ChainMood.BROKEN
+        now.hour < 16 -> ChainMood.CALM
+        now.hour < 20 -> ChainMood.NUDGE
+        now.hour < 22 -> ChainMood.URGENT
+        else -> ChainMood.LAST_CALL
+    }
+}
+
+/** Hours at which [chainMood] can change on its own (besides midnight), so widgets refresh right then. */
+private val moodBoundaryHours = listOf(16, 20, 22)
+
+fun nextMoodBoundaryAt(now: Long, zone: ZoneId): Long {
+    val current = Instant.ofEpochMilli(now).atZone(zone)
+    val today = current.toLocalDate()
+    return (moodBoundaryHours.map { today.atTime(it, 0) } + today.plusDays(1).atStartOfDay())
+        .map { it.atZone(zone) }
+        .first { it.isAfter(current) }
+        .toInstant()
+        .toEpochMilli()
+}
+
+/** Next local midnight after [now]: when an unmarked chain breaks. */
+fun nextMidnightAt(now: Long, zone: ZoneId): Long =
+    Instant.ofEpochMilli(now).atZone(zone).toLocalDate().plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()

@@ -6,4 +6,6 @@
     <string name="task_widget_description">Bir görev ve listesi; maddeleri ana ekrandan işaretle</string>
     <string name="task_list_widget_label">Yapılacaklar</string>
     <string name="task_list_widget_description">Yapılacak görevler; ana ekrandan işaretle ya da yenisini ekle</string>
+    <string name="shortcut_add_widget_short">Widget ekle</string>
+    <string name="shortcut_add_widget_long">Ana ekrana widget ekle</string>
 </resources>

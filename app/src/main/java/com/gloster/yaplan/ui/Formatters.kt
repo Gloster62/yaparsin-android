@@ -86,3 +86,10 @@ fun compactDueLabel(dueAt: Long, today: LocalDate, zone: ZoneId = ZoneId.systemD
     val due = dueAt.toLocalDateTime(zone)
     return if (due.toLocalDate() == today) due.format(timeFormat) else dayLabel(due.toLocalDate(), today)
 }
+
+/** "2 sa 15 dk", "45 dk" */
+fun formatDuration(millis: Long): String {
+    val minutes = (millis / 60_000).coerceAtLeast(0)
+    val hours = minutes / 60
+    return if (hours > 0) "$hours sa ${minutes % 60} dk" else "$minutes dk"
+}

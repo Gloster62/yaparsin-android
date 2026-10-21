@@ -1,16 +1,11 @@
 package com.gloster.yaplan.reminder
 
-import android.Manifest
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import com.gloster.yaplan.DeepLinks
 import com.gloster.yaplan.R
 import com.gloster.yaplan.YapLanApp
@@ -20,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+/** Due, weekly, snoozed and follow-up reminders of one task; the intent action says which. */
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val taskId = intent.getLongExtra(EXTRA_TASK_ID, -1)
@@ -29,18 +25,25 @@ class ReminderReceiver : BroadcastReceiver() {
             try {
                 val task = app.repository.getTask(taskId) ?: return@launch
                 if (intent.action == ACTION_REPEAT) app.scheduler.update(task)
-                if (!task.isDone) notify(context, task, app.repository.getItems(taskId))
+                if (task.isDone || !canNotify(context)) return@launch
+                val items = app.repository.getItems(taskId)
+                if (intent.action == ACTION_FOLLOW_UP) {
+                    // Tapped, ticked, snoozed or swiped away means it was seen; only an ignored one gets a second nudge.
+                    if (isNotificationShowing(context, task.id.toInt())) {
+                        notify(context, task, items, intent.getStringExtra(EXTRA_CHANNEL) ?: NotificationChannels.TASKS, followUp = true)
+                    }
+                    return@launch
+                }
+                val channel = if (intent.action == ACTION_REPEAT) NotificationChannels.REPEAT else NotificationChannels.TASKS
+                notify(context, task, items, channel, followUp = false)
+                app.scheduler.followUp(task.id, channel)
             } finally {
                 pending.finish()
             }
         }
     }
 
-    private fun notify(context: Context, task: Task, items: List<ChecklistItem>) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
-            != PackageManager.PERMISSION_GRANTED
-        ) return
-
+    private fun notify(context: Context, task: Task, items: List<ChecklistItem>, channel: String, followUp: Boolean) {
         val open = PendingIntent.getActivity(
             context,
             task.id.toInt(),
@@ -48,13 +51,16 @@ class ReminderReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val left = items.filterNot { it.isDone }
-        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("YAP LAN!")
+            .setContentTitle(if (followUp) "Hâlâ bekliyor" else "YAP LAN!")
             .setContentText(task.title)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setContentIntent(open)
             .setAutoCancel(true)
+            .addAction(0, "Tamamlandı", NotificationActionReceiver.taskDone(context, task.id))
+            .addAction(0, "10 dk ertele", NotificationActionReceiver.taskSnooze(context, task.id))
         if (left.isNotEmpty()) {
             builder.setStyle(
                 NotificationCompat.BigTextStyle()
@@ -66,16 +72,9 @@ class ReminderReceiver : BroadcastReceiver() {
 
     companion object {
         const val EXTRA_TASK_ID = "task_id"
+        const val EXTRA_CHANNEL = "channel"
         const val ACTION_REPEAT = "com.gloster.yaplan.REPEAT_REMINDER"
-        const val CHANNEL_ID = "reminders"
-
-        fun createChannel(context: Context) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Hatırlatmalar",
-                NotificationManager.IMPORTANCE_HIGH,
-            )
-            context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-        }
+        const val ACTION_SNOOZE = "com.gloster.yaplan.SNOOZED_REMINDER"
+        const val ACTION_FOLLOW_UP = "com.gloster.yaplan.FOLLOW_UP_REMINDER"
     }
 }

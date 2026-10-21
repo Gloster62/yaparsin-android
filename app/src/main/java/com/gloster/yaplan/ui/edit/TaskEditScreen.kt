@@ -52,6 +52,7 @@ import com.gloster.yaplan.ui.components.TaskCheckbox
 import com.gloster.yaplan.ui.components.YapSnackbarHost
 import com.gloster.yaplan.ui.formatDateTime
 import com.gloster.yaplan.ui.theme.Yap
+import com.gloster.yaplan.widget.ADD_WIDGET_BY_HAND
 import com.gloster.yaplan.widget.requestTaskWidget
 import kotlinx.coroutines.launch
 
@@ -109,7 +110,7 @@ fun TaskEditScreen(
                     onClick = {
                         if (!requestTaskWidget(context, viewModel.taskId)) {
                             scope.launch {
-                                snackbar.showSnackbar("Ana ekrana uzun bas → Widget'lar → YAP LAN! yolunu kullan.")
+                                snackbar.showSnackbar(ADD_WIDGET_BY_HAND)
                             }
                         }
                     },

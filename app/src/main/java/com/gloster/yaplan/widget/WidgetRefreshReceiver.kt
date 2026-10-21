@@ -1,4 +1,4 @@
-package com.gloster.yaplan.reminder
+package com.gloster.yaplan.widget
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -8,15 +8,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-class BootReceiver : BroadcastReceiver() {
+/** Redraws the widgets when the chain mood or the day changes by the clock alone. */
+class WidgetRefreshReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
-        val pending = goAsync()
         val app = context.applicationContext as YapLanApp
-        CoroutineScope(Dispatchers.IO).launch {
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.Default).launch {
             try {
-                app.repository.rescheduleAll()
-                app.habits.rescheduleReminders()
+                app.scheduler.scheduleWidgetRefresh()
+                app.updateWidgets()
             } finally {
                 pending.finish()
             }

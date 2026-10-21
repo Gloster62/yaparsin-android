@@ -13,18 +13,28 @@ Görünüm "Tasarım 4 – Sade ve Anlaşılır"a göre: koyu zemin, tek vurgu r
 - Kaydırarak ya da düzenleme ekranından silme, "Geri al" ile geri getirme
 - Kullanıcı tanımlı renkli kategoriler, kategori başına görev sayısı
 - Son tarihi olan her görev için o saatte bildirim gelir (ayrıca açıp kapatmaya gerek yok);
-  telefon yeniden başlasa da hatırlatmalar korunur. Listesi olan görevin bildiriminde kalan maddeler yazar.
+  telefon yeniden başlasa, uygulama güncellense ya da saat dilimi değişse de hatırlatmalar korunur.
+  Listesi olan görevin bildiriminde kalan maddeler yazar.
+- Bildirim düğmeleri: görevlerde **Tamamlandı** ve **10 dk ertele**, alışkanlıklarda **Bugün yaptım**.
+  Cevapsız kalan görev bildirimi 30 dakika sonra bir kez daha hatırlatır.
+- Ayrı bildirim kanalları (Görev, Düzenli, Alışkanlık, Zincir kurtarıcı, Zincir alarmı): her biri
+  telefon ayarlarından ayrı ayrı kapatılabilir.
 - **Düzenli hatırlat:** haftanın günleri (ör. Pt, Pe) ve bir saat seçilir; görev tamamlanana kadar
   o günlerde bildirim gelir
 - **Alışkanlıklar ("Zinciri kırma"):** her gün yapılan alışkanlıklar, aylık takvimde birleşik sarı zincir,
   güncel ve en uzun zincir, bu ayın skoru. Yalnızca bugün ve dün işaretlenebilir.
-  İsteğe bağlı günlük hatırlatma: o saatte bugün yapılmadıysa bildirim gelir.
+  İsteğe bağlı günlük hatırlatma: o saatte bugün yapılmadıysa bildirim gelir. Hatırlatma **alarm** olarak
+  da seçilebilir: kilit ekranında tam ekran çalar, Yaptım / 10 dk ertele / Kapat denene kadar susmaz.
+- **Zincir kurtarıcı:** her akşam 22:00'de, bugün yapılmazsa gece yarısı kırılacak zincirler için
+  gece yarısına geri sayan tek bir bildirim.
 - **Takvim widget'ı:** alışkanlık sayfasındaki "Widget olarak ekle" ile o alışkanlığın bu ayki takvimi
   ana ekrana eklenir (ya da ana ekran → Widget'lar → YAP LAN! → alışkanlığı seç). Dokununca alışkanlık açılır.
+  Günün saatine ve zincirin durumuna göre mesajı ve kenar rengi değişir (16:00, 20:00, 22:00'de yenilenir).
 - **Görev widget'ı:** tek bir görev ve listesi; görev ve maddeler ana ekrandan işaretlenir.
   Görev sayfasındaki "Widget olarak ekle" ya da ana ekran → Widget'lar → YAP LAN! → Görev.
 - **Yapılacaklar widget'ı:** açık görevler (gecikenler kırmızı) ve bugün bitenler; ana ekrandan işaretlenir,
   "+" ile yeni görev eklenir.
+- Uygulama ikonuna uzun basınca **Widget ekle** kısayolu; widget'ı olmayanlara listelerde kapatılabilir öneri kartı.
 
 ## Derleme ve çalıştırma
 ```fish

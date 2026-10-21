@@ -99,4 +99,29 @@ class HabitStatsTest {
         assertEquals(at(21, 21, 0), nextReminderAt(at(20, 21, 0), 21 * 60, zone))
         assertEquals(at(21, 8, 30), nextReminderAt(at(20, 22, 0), 8 * 60 + 30, zone))
     }
+
+    @Test
+    fun chainMoodGetsMoreUrgentTowardsMidnight() {
+        val atRisk = days(18, 19)
+        fun at(hour: Int) = today.atTime(hour, 0)
+        assertEquals(ChainMood.CALM, chainMood(atRisk, at(9)))
+        assertEquals(ChainMood.NUDGE, chainMood(atRisk, at(16)))
+        assertEquals(ChainMood.URGENT, chainMood(atRisk, at(21)))
+        assertEquals(ChainMood.LAST_CALL, chainMood(atRisk, at(22)))
+        assertEquals(ChainMood.DONE_TODAY, chainMood(atRisk + today, at(23)))
+        assertEquals(ChainMood.BROKEN, chainMood(days(15), at(23)))
+        assertEquals(ChainMood.FRESH, chainMood(emptySet(), at(23)))
+    }
+
+    @Test
+    fun widgetsRefreshAtEachMoodBoundary() {
+        val zone = ZoneOffset.UTC
+        fun at(day: Int, hour: Int, minute: Int = 0) = LocalDateTime.of(2026, 10, day, hour, minute).toInstant(zone).toEpochMilli()
+
+        assertEquals(at(20, 16), nextMoodBoundaryAt(at(20, 9), zone))
+        assertEquals(at(20, 20), nextMoodBoundaryAt(at(20, 16), zone))
+        assertEquals(at(20, 22), nextMoodBoundaryAt(at(20, 21, 59), zone))
+        assertEquals(at(21, 0), nextMoodBoundaryAt(at(20, 22), zone))
+        assertEquals(at(21, 0), nextMidnightAt(at(20, 9), zone))
+    }
 }

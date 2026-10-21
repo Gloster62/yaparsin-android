@@ -22,6 +22,12 @@ interface HabitDao {
     @Query("SELECT * FROM habits WHERE reminderMinutes IS NOT NULL")
     suspend fun withReminder(): List<Habit>
 
+    @Query("SELECT * FROM habits ORDER BY createdAt")
+    suspend fun all(): List<Habit>
+
+    @Query("SELECT * FROM habit_checks")
+    suspend fun allChecks(): List<HabitCheck>
+
     @Query("SELECT * FROM habit_checks")
     fun observeAllChecks(): Flow<List<HabitCheck>>
 
