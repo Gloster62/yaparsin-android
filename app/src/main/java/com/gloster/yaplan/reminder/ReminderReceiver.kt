@@ -53,7 +53,7 @@ class ReminderReceiver : BroadcastReceiver() {
         val left = items.filterNot { it.isDone }
         val builder = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(if (followUp) "Hâlâ bekliyor" else "YAP LAN!")
+            .setContentTitle(if (followUp) "Hâlâ bekliyor" else "YAPARSIN!")
             .setContentText(task.title)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)

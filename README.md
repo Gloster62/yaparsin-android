@@ -1,4 +1,4 @@
-# YAP LAN!
+# YAPARSIN!
 
 Kotlin + Jetpack Compose ile yazılmış, koyu temalı Android yapılacaklar uygulaması.
 Görünüm "Tasarım 4 – Sade ve Anlaşılır"a göre: koyu zemin, tek vurgu rengi (sarı), IBM Plex yazı tipleri.
@@ -28,10 +28,10 @@ Görünüm "Tasarım 4 – Sade ve Anlaşılır"a göre: koyu zemin, tek vurgu r
 - **Zincir kurtarıcı:** her akşam 22:00'de, bugün yapılmazsa gece yarısı kırılacak zincirler için
   gece yarısına geri sayan tek bir bildirim.
 - **Takvim widget'ı:** alışkanlık sayfasındaki "Widget olarak ekle" ile o alışkanlığın bu ayki takvimi
-  ana ekrana eklenir (ya da ana ekran → Widget'lar → YAP LAN! → alışkanlığı seç). Dokununca alışkanlık açılır.
+  ana ekrana eklenir (ya da ana ekran → Widget'lar → YAPARSIN! → alışkanlığı seç). Dokununca alışkanlık açılır.
   Günün saatine ve zincirin durumuna göre mesajı ve kenar rengi değişir (16:00, 20:00, 22:00'de yenilenir).
 - **Görev widget'ı:** tek bir görev ve listesi; görev ve maddeler ana ekrandan işaretlenir.
-  Görev sayfasındaki "Widget olarak ekle" ya da ana ekran → Widget'lar → YAP LAN! → Görev.
+  Görev sayfasındaki "Widget olarak ekle" ya da ana ekran → Widget'lar → YAPARSIN! → Görev.
 - **Yapılacaklar widget'ı:** açık görevler (gecikenler kırmızı) ve bugün bitenler; ana ekrandan işaretlenir,
   "+" ile yeni görev eklenir.
 - Uygulama ikonuna uzun basınca **Widget ekle** kısayolu; widget'ı olmayanlara listelerde kapatılabilir öneri kartı.
